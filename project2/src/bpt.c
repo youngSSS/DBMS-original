@@ -184,6 +184,9 @@ leafRecord * find(uint64_t key) {
     page_t * leaf_page = find_leaf_page(key);
     leafRecord * leaf_record;
 
+    // Case : Empty file
+    if (leaf_page == NULL) return NULL;
+
     for (i = 0; i < leaf_page->p.num_keys; i++)
         if (leaf_page->p.l_records[i].key == key){
             leaf_record = &leaf_page->p.l_records[i];
@@ -379,8 +382,6 @@ int insert_into_page_after_splitting(page_t * old_page, int left_index,
         temp_records[j].pagenum = old_page->p.i_records[i].pagenum;
     }
 
-    //temp_records[j].pagenum = old_page->p.one_more_pagenum;
-
     for (i = 0, j = 0; i < old_page->p.num_keys; i++, j++) {
         if (j == left_index) j++;
         temp_records[j].key = old_page->p.i_records[i].key;
@@ -531,7 +532,6 @@ int insert(uint64_t key, char* value) {
         start_new_tree(key, leaf_record);
         return 0;
     }
-
 
     /* Case : the tree already exists.
      * (Rest of function body.)
