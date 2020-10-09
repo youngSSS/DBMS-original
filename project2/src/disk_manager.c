@@ -27,7 +27,7 @@ void write_to_disk(int table_id, const page_t* src, int page_size, off_t offset)
     int result;
     
 	result = pwrite(Unique_table_id, src, PAGE_SIZE, offset);
-	sync();
+	//sync();
 
     if (result == -1) printf("write_to_file fault in disk_manager.c\n");
 }

@@ -75,18 +75,14 @@ void print_file() {
             }
 
             else {
+                printf("[%lu] ", page->p.one_more_pagenum);
+                enqueue(page->p.one_more_pagenum);
+
                 for (i = 0; i < page->p.num_keys; i++) {
-                    printf("[%lu] %ld ", page->p.i_records[i].pagenum, page->p.i_records[i].key);
+                    printf("%ld [%lu] ", page->p.i_records[i].key, page->p.i_records[i].pagenum);
                     enqueue(page->p.i_records[i].pagenum);
                 }
-                if (i == internal_order - 1){
-                    printf("[%lu] ", page->p.one_more_pagenum);
-                    enqueue(page->p.one_more_pagenum);
-                }
-                else {
-                    printf("[%lu] ", page->p.i_records[i].pagenum);
-                    enqueue(page->p.i_records[i].pagenum);
-                }
+
                 printf(" | ");
             }
 
@@ -116,15 +112,11 @@ void print_file() {
             else {
                 printf("pagenum : %lu, parent : %lu, is_leaf : %d, num keys : %d, one more : %lu", 
                     pagenum, page->p.parent_pagenum, page->p.is_leaf, page->p.num_keys, page->p.one_more_pagenum);
-                for (i = 0; i < page->p.num_keys; i++) {
+                
+                enqueue(page->p.one_more_pagenum);
+                
+                for (i = 0; i < page->p.num_keys; i++)
                     enqueue(page->p.i_records[i].pagenum);
-                }
-                if (i == internal_order - 1){
-                    enqueue(page->p.one_more_pagenum);
-                }
-                else {
-                    enqueue(page->p.i_records[i].pagenum);
-                }
 
                 printf(" | ");
             }
@@ -168,10 +160,10 @@ page_t * find_leaf_page(uint64_t key) {
             else break;
         }
 
-        if (i == internal_order - 1) 
+        if (i == 0) 
             file_read_page(page->p.one_more_pagenum, page);
         else
-            file_read_page(page->p.i_records[i].pagenum, page);
+            file_read_page(page->p.i_records[i - 1].pagenum, page);
     }
 
     return page;
@@ -259,10 +251,15 @@ int get_left_index(page_t * parent, page_t * left) {
     int left_index = 0;
     pagenum_t left_pagenum = get_pagenum(left);
 
+    if (parent->p.one_more_pagenum == left_pagenum)
+        return -1;
+
     for (left_index = 0; left_index < parent->p.num_keys; left_index++) {
         if (parent->p.i_records[left_index].pagenum == left_pagenum)
             break;
     }
+
+    printf("left_index : %d\n", left_index);
 
     return left_index;
 }
@@ -298,8 +295,11 @@ int insert_into_leaf_after_splitting(page_t * leaf_page, uint64_t key, leafRecor
     new_leaf_page = make_leaf_page();
 
     insertion_index = 0;
-    while (insertion_index < leaf_order - 1 && leaf_page->p.l_records[insertion_index].key < key)
-        insertion_index++;
+
+    for (insertion_index = 0; insertion_index < leaf_page->p.num_keys; insertion_index++) {
+        if (key < leaf_page->p.l_records[insertion_index].key)
+            break;
+    }
 
     for (i = 0, j = 0; i < leaf_page->p.num_keys; i++, j++) {
         if (j == insertion_index) j++;
@@ -330,6 +330,8 @@ int insert_into_leaf_after_splitting(page_t * leaf_page, uint64_t key, leafRecor
     new_leaf_page->p.parent_pagenum = leaf_page->p.parent_pagenum;
     new_key = new_leaf_page->p.l_records[0].key;
 
+    printf("new_key : %d\n", new_key);
+
     file_write_page(get_pagenum(leaf_page), leaf_page);
     file_write_page(new_leaf_pagenum, new_leaf_page);
 
@@ -340,28 +342,16 @@ int insert_into_leaf_after_splitting(page_t * leaf_page, uint64_t key, leafRecor
 int insert_into_page(page_t * parent, int left_index, uint64_t key, pagenum_t right_pagenum) {
     int i;
 
-    // internal_order - 2 is last index of parent
 
-    if (left_index == internal_order - 2) {
-        parent->p.i_records[left_index].key = key;
-        parent->p.one_more_pagenum = right_pagenum;
-        parent->p.num_keys++;
-    }
 
-    else {
+    for (i = parent->p.num_keys; i > left_index + 1 ; i--)
+        parent->p.i_records[i] = parent->p.i_records[i - 1];
 
-        if (parent->p.num_keys == internal_order - 2)
-            parent->p.one_more_pagenum = parent->p.i_records[internal_order - 2].pagenum;
-        else
-            parent->p.i_records[parent->p.num_keys + 1].pagenum = parent->p.i_records[parent->p.num_keys].pagenum;
-
-        for (i = parent->p.num_keys; i > left_index; i--)
-            parent->p.i_records[i] = parent->p.i_records[i - 1];
-
-        parent->p.i_records[left_index].key = key;
-        parent->p.i_records[left_index + 1].pagenum = right_pagenum;
-        parent->p.num_keys++;
-    }
+    printf("KEY : %d\n", key);
+    parent->p.i_records[left_index + 1].key = key;
+    printf("KEY : %d\n", parent->p.i_records[left_index + 1]);
+    parent->p.i_records[left_index + 1].pagenum = right_pagenum;
+    parent->p.num_keys++;
 
     file_write_page(get_pagenum(parent), parent);
 
@@ -369,8 +359,7 @@ int insert_into_page(page_t * parent, int left_index, uint64_t key, pagenum_t ri
 }
 
 
-int insert_into_page_after_splitting(page_t * old_page, int left_index, 
-        int64_t key, pagenum_t right_pagenum) {
+int insert_into_page_after_splitting(page_t * old_page, int left_index, int64_t key, pagenum_t right_pagenum) {
 
     int i, j, split, k_prime;
     page_t * new_page, * child_page;
@@ -379,30 +368,18 @@ int insert_into_page_after_splitting(page_t * old_page, int left_index,
 
     for (i = 0, j = 0; i < old_page->p.num_keys; i++, j++) {
         if (j == left_index + 1) j++;
-        temp_records[j].pagenum = old_page->p.i_records[i].pagenum;
+        temp_records[j] = old_page->p.i_records[i];
     }
 
-    for (i = 0, j = 0; i < old_page->p.num_keys; i++, j++) {
-        if (j == left_index) j++;
-        temp_records[j].key = old_page->p.i_records[i].key;
-    }
-
-    // Case : left is in parents one_more_pagenum
-    if (left_index == internal_order - 1) {
-        temp_records[left_index].pagenum = old_page->p.one_more_pagenum;
-        temp_records[left_index].key = key;
-    }
-
-    else {
-        temp_records[left_index + 1].pagenum = right_pagenum;
-        temp_records[left_index].key = key;
-    }
+    temp_records[left_index + 1].key = key;
+    temp_records[left_index + 1].pagenum = right_pagenum;
 
     split = cut(internal_order);
 
     new_page = make_page();
     new_pagenum = file_alloc_page();
 
+    // old_page set
     old_page->p.num_keys = 0;
 
     for (i = 0; i < split - 1; i++) {
@@ -410,30 +387,29 @@ int insert_into_page_after_splitting(page_t * old_page, int left_index,
         old_page->p.num_keys++;
     }
 
-    old_page->p.i_records[i].pagenum = temp_records[i].pagenum;
+    // Set k_prime
     k_prime = temp_records[split - 1].key;
+
+    // new_page set
+    new_page->p.one_more_pagenum = temp_records[split - 1].pagenum;
 
     for (++i, j = 0; i < internal_order; i++, j++) {
         new_page->p.i_records[j] = temp_records[i];
         new_page->p.num_keys++;
     }
-
-    // Case : left is in parents one_more_pagenum
-    if (left_index == internal_order - 1)
-        new_page->p.i_records[j].pagenum = right_pagenum;
-
-    else 
-        new_page->p.i_records[j].pagenum = old_page->p.one_more_pagenum;
-
     
-
     new_page->p.parent_pagenum = old_page->p.parent_pagenum;
 
     file_write_page(get_pagenum(old_page), old_page);
     file_write_page(new_pagenum, new_page);
 
+    // Change parent of new_page's children
     child_page = (page_t*)malloc(sizeof(page_t));
-    for (i = 0; i <= new_page->p.num_keys; i++) {
+
+    file_read_page(new_page->p.one_more_pagenum, child_page);
+    file_write_page(new_page->p.one_more_pagenum, child_page);
+
+    for (i = 0; i < new_page->p.num_keys; i++) {
         child_pagenum = new_page->p.i_records[i].pagenum;
         file_read_page(child_pagenum, child_page);
         child_page->p.parent_pagenum = new_pagenum;
@@ -473,9 +449,9 @@ int insert_into_new_root(page_t * left, uint64_t key, page_t * right, pagenum_t 
 
     left_pagenum = get_pagenum(left);
 
+    root->p.one_more_pagenum = left_pagenum;
     root->p.i_records[0].key = key;
-    root->p.i_records[0].pagenum = left_pagenum;
-    root->p.i_records[1].pagenum = right_pagenum;
+    root->p.i_records[0].pagenum = right_pagenum;
     root->p.num_keys++;
     root->p.parent_pagenum = 0;
 
@@ -562,17 +538,8 @@ page_t * remove_entry_from_page(page_t * page, int key_index) {
     }
 
     else {
-        if (key_index < page->p.num_keys - 1) {
-            page->p.i_records[key_index].key = page->p.i_records[key_index + 1].key;
-
-            for (i = key_index + 2; i < page->p.num_keys; i++)
-                page->p.i_records[i - 1] = page->p.i_records[i];
-
-            if (i == internal_order - 1)
-                page->p.i_records[i - 1].pagenum = page->p.one_more_pagenum;
-            else
-                page->p.i_records[i - 1].pagenum = page->p.i_records[i].pagenum;
-        }
+        for (i = key_index + 1; i < page->p.num_keys; i++)
+            page->p.i_records[i - 1] = page->p.i_records[i];
     }
 
     page->p.num_keys--;
@@ -589,6 +556,7 @@ page_t * adjust_root(page_t * root_page) {
     pagenum_t root_pagenum;
 
     /* Case: nonempty root */
+
     if (root_page->p.num_keys > 0)
         return header_page;
 
@@ -600,8 +568,8 @@ page_t * adjust_root(page_t * root_page) {
     if (!root_page->p.is_leaf) {
         new_root_page = (page_t*)malloc(sizeof(page_t));
 
-        file_read_page(root_page->p.i_records[0].pagenum, new_root_page);
-        header_page->h.root_pagenum = root_page->p.i_records[0].pagenum;
+        file_read_page(root_page->p.one_more_pagenum, new_root_page);
+        header_page->h.root_pagenum = root_page->p.one_more_pagenum;
         new_root_page->p.parent_pagenum = 0;
         
         file_write_page(header_page->h.root_pagenum, new_root_page);
@@ -627,7 +595,7 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
     pagenum_t key_pagenum, neighbor_pagenum, temp_pagenum;
     int i, j, neighbor_insertion_index, n_end, key_index;
 
-    if (neighbor_index == -1) {
+    if (neighbor_index == -2) {
         tmp = key_page;
         key_page = neighbor;
         neighbor = tmp;
@@ -648,7 +616,13 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
         neighbor->p.i_records[neighbor_insertion_index].key = k_prime;
         neighbor->p.num_keys++; 
 
-        if (neighbor_index == -1) {
+        neighbor->p.i_records[neighbor_insertion_index].pagenum = key_page->p.one_more_pagenum;
+
+        file_read_page(neighbor->p.i_records[neighbor_insertion_index].pagenum, temp_page);
+        temp_page->p.parent_pagenum = neighbor_pagenum;
+        file_write_page(neighbor->p.i_records[neighbor_insertion_index].pagenum, temp_page);
+
+        if (neighbor_index == -2) {
             for (i = neighbor_insertion_index + 1, j = 0; j < key_page->p.num_keys; i++, j++) {
                 neighbor->p.i_records[i] = key_page->p.i_records[j];
                 neighbor->p.num_keys++;
@@ -657,21 +631,8 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
                 temp_page->p.parent_pagenum = neighbor_pagenum;
                 file_write_page(neighbor->p.i_records[i].pagenum, temp_page);
             }
-            neighbor->p.i_records[i].pagenum = key_page->p.i_records[j].pagenum;
-
-            file_read_page(neighbor->p.i_records[i].pagenum, temp_page);
-            temp_page->p.parent_pagenum = neighbor_pagenum;
-            file_write_page(neighbor->p.i_records[i].pagenum, temp_page);
         }
 
-        else {
-
-            neighbor->p.i_records[neighbor_insertion_index + 1].pagenum = key_page->p.i_records[0].pagenum;
-
-            file_read_page(neighbor->p.i_records[neighbor_insertion_index + 1].pagenum, temp_page);
-            temp_page->p.parent_pagenum = neighbor_pagenum;
-            file_write_page(neighbor->p.i_records[neighbor_insertion_index + 1].pagenum, temp_page);
-        }
         free(temp_page);
     }
 
@@ -680,7 +641,7 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
     else {
         printf("neighbor pagenum : %lu\n", neighbor_pagenum);
 
-        if (neighbor_index == -1) {
+        if (neighbor_index == -2) {
             for (i = neighbor_insertion_index, j = 0; j < key_page->p.num_keys; i++, j++) {
                 neighbor->p.i_records[i] = key_page->p.i_records[j];
                 neighbor->p.num_keys++; 
@@ -693,13 +654,10 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
 
     for (i = 0; i < parent->p.num_keys; i++) {
         if (parent->p.i_records[i].pagenum == key_pagenum) {
-            key_index = i - 1;
+            key_index = i;
             break;
         }
     }
-
-    if (i == parent->p.num_keys)
-        key_index = parent->p.num_keys - 1;
 
     file_write_page(neighbor_pagenum, neighbor);
     file_free_page(key_pagenum);
@@ -734,7 +692,7 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
 
     /* Case: neighbor is left sibling of key_page */
 
-    if (neighbor_flag != -1) {
+    if (neighbor_flag != -2) {
 
         /* Case : internal page */
         
@@ -743,7 +701,7 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
             // Move key_page's 0th pagenum to the end 
             // Move k_prime to end of key_page to maintain tree property
             // End means last (pagenum or key) of key_page after redistribution
-            key_page->p.i_records[move_cnt + 1].pagenum = key_page->p.i_records[0].pagenum;
+            key_page->p.i_records[move_cnt].pagenum = key_page->p.one_more_pagenum;
             key_page->p.i_records[move_cnt].key = k_prime;
             key_page->p.num_keys++;
 
@@ -754,19 +712,7 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
                 neighbor->p.num_keys--;
             }
 
-            // Take a last pagenum
-
-            /* Case : neighbor page is full */
-            // Last pagenum is in one_more_pagenum 
-             
-            if (num_neighbor_keys == internal_order - 1)
-                key_page->p.i_records[i].pagenum = neighbor->p.one_more_pagenum;
-           
-            /* Case : neighbor page is not full */
-            // Last pagenum is in right-most pagenum
-             
-            else
-                key_page->p.i_records[i].pagenum = neighbor->p.i_records[i + move_start_index].pagenum;
+            key_page->p.one_more_pagenum = neighbor->p.i_records[move_start_index - 1].pagenum;
 
             // Take a k_prime from neighbor to parent
             parent->p.i_records[k_prime_index].key = neighbor->p.i_records[move_start_index - 1].key;
@@ -774,8 +720,12 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
 
             temp_page = (page_t*)malloc(sizeof(page_t));
 
-            // Change parent to key_page
-            for (i = 0; i < key_page->p.num_keys + 1; i++) {
+            // Change parent of key_page's children
+            file_read_page(key_page->p.one_more_pagenum, temp_page);
+            temp_page->p.parent_pagenum = key_pagenum;
+            file_write_page(key_page->p.one_more_pagenum, temp_page);
+
+            for (i = 0; i < key_page->p.num_keys; i++) {
                 file_read_page(key_page->p.i_records[i].pagenum, temp_page);
                 temp_page->p.parent_pagenum = key_pagenum;
                 file_write_page(key_page->p.i_records[i].pagenum, temp_page);
@@ -817,42 +767,27 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
             key_page->p.num_keys++;
 
             // Take a records from the neighbor to key_page
-            for (i = 1; i < move_cnt + 1; i++) {
-                key_page->p.i_records[i] = neighbor->p.i_records[i - 1];
+            key_page->p.i_records[0].pagenum = neighbor->p.one_more_pagenum;
+            for (i = 0; i < move_cnt; i++) {
+                key_page->p.i_records[i + 1] = neighbor->p.i_records[i];
                 key_page->p.num_keys++;
                 neighbor->p.num_keys--;
             }
-            key_page->p.i_records[i].pagenum = neighbor->p.i_records[i - 1].pagenum;
 
             // Reset k_prime
-            parent->p.i_records[k_prime_index].key = neighbor->p.i_records[i - 1].key;
+            parent->p.i_records[k_prime_index].key = neighbor->p.i_records[i].key;
             neighbor->p.num_keys--;
 
             // Rearrangement neighbor
-            for (j = 0; i < num_neighbor_keys; i++, j++) {
+            neighbor->p.one_more_pagenum = neighbor->p.i_records[i].pagenum;
+            for (++i, j = 0; i < num_neighbor_keys; i++, j++) {
                 neighbor->p.i_records[j] = neighbor->p.i_records[i];
             }
 
-            // Take a last page pointer (= last pagenum)
-
-            /* Case : neighbor page is full
-             * last page pointer is in one_more_pagenum 
-             */
-
-            if (num_neighbor_keys == internal_order - 1)
-                neighbor->p.i_records[j].pagenum = neighbor->p.one_more_pagenum;
-            
-            /* Case : neighbor page is not full 
-             * last page pointer is in right-most record
-             */
-
-            else 
-                neighbor->p.i_records[j].pagenum = neighbor->p.i_records[i].pagenum;
-
             temp_page = (page_t*)malloc(sizeof(page_t));
 
-            // Change parent to key_page
-            for (i = 0; i < key_page->p.num_keys + 1; i++) {
+            // Change parent of key_page's children
+            for (i = 0; i < key_page->p.num_keys; i++) {
                 file_read_page(key_page->p.i_records[i].pagenum, temp_page);
                 temp_page->p.parent_pagenum = key_pagenum;
                 file_write_page(key_page->p.i_records[i].pagenum, temp_page);
@@ -901,15 +836,16 @@ int get_neighbor_index(page_t * parent, page_t * key_page) {
     key_pagenum = get_pagenum(key_page);
     printf("my page number : %lu\n", key_pagenum);
     printf("parent page number : %lu\n", get_pagenum(parent));
+
+    if (parent->p.one_more_pagenum == key_pagenum)
+        return -2;
+
     for (i = 0; i < parent->p.num_keys; i++) {
         if (parent->p.i_records[i].pagenum == key_pagenum) {
             neighbor_index = i - 1;
             break;
         }
     }
-
-    if (i == parent->p.num_keys)
-        neighbor_index = i - 1;
 
     return neighbor_index;
 }
@@ -947,18 +883,23 @@ page_t * delete_entry(page_t * key_page, int key_index) {
     printf("key_index : %d\n", key_index);
 
     // neighbor is a sibling of key_page
-    // If key_page has only right sibling, neighbor_flag is -1
-    // Otherwise, it is neighbor's index in parent
+    // If key_page has only right sibling, neighbor_flag is -2
+    // If key_page has left sibling in one_more_pagenum, neighbor_flag is -1
+    // Otherwise, key_index is neighbor's index in parent
     neighbor_flag = key_index;
-    neighbor_index = neighbor_flag == -1 ? 1 : neighbor_flag;
-    neighbor_pagenum = parent->p.i_records[neighbor_index].pagenum;
+    neighbor_index = neighbor_flag == -2 ? 0 : neighbor_flag;
+
+    if (neighbor_index == -1) 
+        neighbor_pagenum = parent->p.one_more_pagenum;
+    else 
+        neighbor_pagenum = parent->p.i_records[neighbor_index].pagenum;
 
     neighbor = (page_t*)malloc(sizeof(page_t));
     file_read_page(neighbor_pagenum, neighbor);
 
-    // k_prime_index is 0 when neighbor is not exist
+    // k_prime_index is 0 when left sibling is not exist
     // k_prime_index is neighbor_index when neighbor is exist
-    k_prime_index = neighbor_flag == -1 ? 0 : neighbor_flag;
+    k_prime_index = neighbor_flag == -2 ? 0 : neighbor_flag + 1;
 
     printf("neighbor_index : %d, k_prime_index : %d\n", neighbor_index, k_prime_index);
 
@@ -990,7 +931,6 @@ int delete(uint64_t key) {
     if (key_record == NULL)
         return 1;
     
-
     if (key_record != NULL && key_leaf_page != NULL) {
         for (int i = 0; i < key_leaf_page->p.num_keys; i++) {
             if (key_leaf_page->p.l_records[i].key == key) {
@@ -1036,10 +976,10 @@ pagenum_t get_pagenum(page_t* page) {
             break;
     }
 
-    if (!parent_page->p.is_leaf && i == internal_order - 1) 
+    if (!parent_page->p.is_leaf && i == 0) 
         pagenum = parent_page->p.one_more_pagenum;
     else 
-        pagenum = parent_page->p.i_records[i].pagenum;
+        pagenum = parent_page->p.i_records[i - 1].pagenum;
 
     return pagenum;
 }
