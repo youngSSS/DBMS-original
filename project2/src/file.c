@@ -86,11 +86,11 @@ void make_free_pages() {
     page_t* free_page = (page_t*)malloc(sizeof(page_t));
     if (free_page == NULL) printf("make_header_page in db_api.c\n");
 	
-	printf("Start to make 70000 free pages\n");
+	printf("Start to make 5000 free pages\n");
 
     // Make a free page and write it on on-disk
     start_free_pagenum = header_page->h.num_pages;
-    for (i = 0; i < 70000; i++) {
+    for (i = 0; i < 5000; i++) {
         free_page->f.next_free_pagenum = i + start_free_pagenum + 1;
         file_write_page(i + start_free_pagenum, free_page);
         header_page->h.num_pages++;
