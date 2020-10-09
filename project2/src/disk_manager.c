@@ -5,7 +5,7 @@
 
 
 int open_file_from_disk(char * pathname) {
-	return open(pathname, O_RDWR | O_CREAT, S_IRWXU);
+	return open(pathname, O_RDWR | O_CREAT | O_SYNC | O_DIRECT, S_IRWXU);
 }
 
 

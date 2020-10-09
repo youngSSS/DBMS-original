@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#ifndef O_DIRECT
+#define O_DIRECT 00040000
+#endif
+
 extern int Unique_table_id;
 
 /* Disk access functions */
