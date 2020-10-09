@@ -27,8 +27,8 @@
 #define MAX 1000
 
 // Default order of leaf page and internal page
-#define DEFAULT_LEAF_ORDER 3
-#define DEFAULT_INTERNAL_ORDER 4
+#define DEFAULT_LEAF_ORDER 32
+#define DEFAULT_INTERNAL_ORDER 249
 
 
 typedef uint64_t pagenum_t;

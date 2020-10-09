@@ -69,14 +69,14 @@ void print_file() {
 
             if (page->p.is_leaf) {
                 for (i = 0; i < page->p.num_keys; i++) {
-                    printf("(%lld, %s) ", page->p.l_records[i].key, page->p.l_records[i].value);
+                    printf("(%ld, %s) ", page->p.l_records[i].key, page->p.l_records[i].value);
                 }
                 printf(" | ");
             }
 
             else {
                 for (i = 0; i < page->p.num_keys; i++) {
-                    printf("[%lu] %lld ", page->p.i_records[i].pagenum, page->p.i_records[i].key);
+                    printf("[%lu] %ld ", page->p.i_records[i].pagenum, page->p.i_records[i].key);
                     enqueue(page->p.i_records[i].pagenum);
                 }
                 if (i == internal_order - 1){
