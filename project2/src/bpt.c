@@ -76,15 +76,15 @@ void print_file() {
 
             else {
                 for (i = 0; i < page->p.num_keys; i++) {
-                    printf("[%llu] %lld ", page->p.i_records[i].pagenum, page->p.i_records[i].key);
+                    printf("[%lu] %lld ", page->p.i_records[i].pagenum, page->p.i_records[i].key);
                     enqueue(page->p.i_records[i].pagenum);
                 }
                 if (i == internal_order - 1){
-                    printf("[%llu] ", page->p.one_more_pagenum);
+                    printf("[%lu] ", page->p.one_more_pagenum);
                     enqueue(page->p.one_more_pagenum);
                 }
                 else {
-                    printf("[%llu] ", page->p.i_records[i].pagenum);
+                    printf("[%lu] ", page->p.i_records[i].pagenum);
                     enqueue(page->p.i_records[i].pagenum);
                 }
                 printf(" | ");
@@ -108,13 +108,13 @@ void print_file() {
             file_read_page(pagenum, page);
 
             if (page->p.is_leaf) {
-                printf("pagenum : %llu, parent : %llu, is_leaf : %d, num keys : %d, right sibling : %llu", 
+                printf("pagenum : %lu, parent : %lu, is_leaf : %d, num keys : %d, right sibling : %lu", 
                     pagenum, page->p.parent_pagenum, page->p.is_leaf, page->p.num_keys, page->p.right_sibling_pagenum);
                 printf(" | ");
             }
 
             else {
-                printf("pagenum : %llu, parent : %llu, is_leaf : %d, num keys : %d, one more : %llu", 
+                printf("pagenum : %lu, parent : %lu, is_leaf : %d, num keys : %d, one more : %lu", 
                     pagenum, page->p.parent_pagenum, page->p.is_leaf, page->p.num_keys, page->p.one_more_pagenum);
                 for (i = 0; i < page->p.num_keys; i++) {
                     enqueue(page->p.i_records[i].pagenum);
@@ -140,8 +140,8 @@ void print_file() {
 
 void find_and_print(uint64_t key) {
     leafRecord * r = find(key);
-    if (r == NULL) printf("Record not found under key %llu.\n", key);
-    else printf("Record -- key %llu, value %s.\n", key, r->value);
+    if (r == NULL) printf("Record not found under key %lu.\n", key);
+    else printf("Record -- key %lu, value %s.\n", key, r->value);
 }
 
 
@@ -641,7 +641,9 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
     /* Case : internal page */
 
     if (!key_page->p.is_leaf) {
-        printf("neighbor pagenum : %llu\n", neighbor_pagenum);
+        printf("neighbor pagenum : %lu\n", neighbor_pagenum);
+
+        temp_page = (page_t*)malloc(sizeof(page_t));
 
         neighbor->p.i_records[neighbor_insertion_index].key = k_prime;
         neighbor->p.num_keys++; 
@@ -650,29 +652,33 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
             for (i = neighbor_insertion_index + 1, j = 0; j < key_page->p.num_keys; i++, j++) {
                 neighbor->p.i_records[i] = key_page->p.i_records[j];
                 neighbor->p.num_keys++;
+
+                file_read_page(neighbor->p.i_records[i].pagenum, temp_page);
+                temp_page->p.parent_pagenum = neighbor_pagenum;
+                file_write_page(neighbor->p.i_records[i].pagenum, temp_page);
             }
             neighbor->p.i_records[i].pagenum = key_page->p.i_records[j].pagenum;
+
+            file_read_page(neighbor->p.i_records[i].pagenum, temp_page);
+            temp_page->p.parent_pagenum = neighbor_pagenum;
+            file_write_page(neighbor->p.i_records[i].pagenum, temp_page);
         }
 
         else {
 
             neighbor->p.i_records[neighbor_insertion_index + 1].pagenum = key_page->p.i_records[0].pagenum;
 
-            temp_page = (page_t*)malloc(sizeof(page_t));
-
             file_read_page(neighbor->p.i_records[neighbor_insertion_index + 1].pagenum, temp_page);
             temp_page->p.parent_pagenum = neighbor_pagenum;
             file_write_page(neighbor->p.i_records[neighbor_insertion_index + 1].pagenum, temp_page);
-        
-            free(temp_page);
         }
-        
+        free(temp_page);
     }
 
     /* Case : leaf page */
 
     else {
-        printf("neighbor pagenum : %llu\n", neighbor_pagenum);
+        printf("neighbor pagenum : %lu\n", neighbor_pagenum);
 
         if (neighbor_index == -1) {
             for (i = neighbor_insertion_index, j = 0; j < key_page->p.num_keys; i++, j++) {
@@ -781,6 +787,12 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
         /* Case : leaf page */
 
         else {
+
+            if (num_neighbor_keys == 2) {
+                move_cnt = 1;
+                move_start_index = 1;
+            }
+
             // Take a records from the neighbor to key_page
             for (i = 0; i < move_cnt; i++) {
                 key_page->p.l_records[i] = neighbor->p.l_records[i + move_start_index];
@@ -853,9 +865,11 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
 
         else {
 
-            if (num_neighbor_keys == 2)
+            if (num_neighbor_keys == 2) {
                 move_cnt = 1;
-
+                move_start_index = 1;
+            }
+            
             // Take a records from the neighbor to key_page
             for (i = 0; i < move_cnt; i++) {
                 key_page->p.i_records[i] = neighbor->p.i_records[i];
@@ -881,12 +895,14 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
 
 
 int get_neighbor_index(page_t * parent, page_t * key_page) {
-    pagenum_t key_page_pagenum;
+    pagenum_t key_pagenum;
     int i, neighbor_index;
 
-    key_page_pagenum = get_pagenum(key_page);
+    key_pagenum = get_pagenum(key_page);
+    printf("my page number : %lu\n", key_pagenum);
+    printf("parent page number : %lu\n", get_pagenum(parent));
     for (i = 0; i < parent->p.num_keys; i++) {
-        if (parent->p.i_records[i].pagenum == key_page_pagenum) {
+        if (parent->p.i_records[i].pagenum == key_pagenum) {
             neighbor_index = i - 1;
             break;
         }
