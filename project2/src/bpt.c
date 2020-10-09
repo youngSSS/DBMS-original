@@ -509,7 +509,7 @@ void start_new_tree(uint64_t key, leafRecord leaf_record) {
     header_page->h.root_pagenum = pagenum;
 
     file_write_page(pagenum, root);
-    file_write_page(0, header_page);
+	file_write_page(0, header_page);
 }
 
 

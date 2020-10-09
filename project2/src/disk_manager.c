@@ -5,7 +5,7 @@
 
 
 int open_file_from_disk(char * pathname) {
-	return open(pathname, O_RDWR | O_CREAT | O_SYNC | O_DIRECT, S_IRWXU);
+	return open(pathname, O_RDWR | O_CREAT, S_IRWXU);
 }
 
 
@@ -25,8 +25,9 @@ void read_from_disk(int table_id, page_t* dest, int page_size, off_t offset) {
 
 void write_to_disk(int table_id, const page_t* src, int page_size, off_t offset) {
     int result;
-
-    result = pwrite(Unique_table_id, src, PAGE_SIZE, offset);
+    
+	result = pwrite(Unique_table_id, src, PAGE_SIZE, offset);
+	sync();
 
     if (result == -1) printf("write_to_file fault in disk_manager.c\n");
 }
