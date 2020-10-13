@@ -259,8 +259,6 @@ int get_left_index(page_t * parent, page_t * left) {
             break;
     }
 
-    printf("left_index : %d\n", left_index);
-
     return left_index;
 }
 
@@ -330,8 +328,6 @@ int insert_into_leaf_after_splitting(page_t * leaf_page, uint64_t key, leafRecor
     new_leaf_page->p.parent_pagenum = leaf_page->p.parent_pagenum;
     new_key = new_leaf_page->p.l_records[0].key;
 
-    printf("new_key : %d\n", new_key);
-
     file_write_page(get_pagenum(leaf_page), leaf_page);
     file_write_page(new_leaf_pagenum, new_leaf_page);
 
@@ -342,14 +338,10 @@ int insert_into_leaf_after_splitting(page_t * leaf_page, uint64_t key, leafRecor
 int insert_into_page(page_t * parent, int left_index, uint64_t key, pagenum_t right_pagenum) {
     int i;
 
-
-
     for (i = parent->p.num_keys; i > left_index + 1 ; i--)
         parent->p.i_records[i] = parent->p.i_records[i - 1];
 
-    printf("KEY : %d\n", key);
     parent->p.i_records[left_index + 1].key = key;
-    printf("KEY : %d\n", parent->p.i_records[left_index + 1]);
     parent->p.i_records[left_index + 1].pagenum = right_pagenum;
     parent->p.num_keys++;
 
@@ -609,8 +601,6 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
     /* Case : internal page */
 
     if (!key_page->p.is_leaf) {
-        printf("neighbor pagenum : %lu\n", neighbor_pagenum);
-
         temp_page = (page_t*)malloc(sizeof(page_t));
 
         neighbor->p.i_records[neighbor_insertion_index].key = k_prime;
@@ -639,11 +629,9 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
     /* Case : leaf page */
 
     else {
-        printf("neighbor pagenum : %lu\n", neighbor_pagenum);
-
         if (neighbor_index == -2) {
             for (i = neighbor_insertion_index, j = 0; j < key_page->p.num_keys; i++, j++) {
-                neighbor->p.i_records[i] = key_page->p.i_records[j];
+                neighbor->p.l_records[i] = key_page->p.l_records[j];
                 neighbor->p.num_keys++; 
             }
         }
@@ -834,8 +822,6 @@ int get_neighbor_index(page_t * parent, page_t * key_page) {
     int i, neighbor_index;
 
     key_pagenum = get_pagenum(key_page);
-    printf("my page number : %lu\n", key_pagenum);
-    printf("parent page number : %lu\n", get_pagenum(parent));
 
     if (parent->p.one_more_pagenum == key_pagenum)
         return -2;
@@ -880,8 +866,6 @@ page_t * delete_entry(page_t * key_page, int key_index) {
 
     key_index = get_neighbor_index(parent, key_page);
 
-    printf("key_index : %d\n", key_index);
-
     // neighbor is a sibling of key_page
     // If key_page has only right sibling, neighbor_flag is -2
     // If key_page has left sibling in one_more_pagenum, neighbor_flag is -1
@@ -900,8 +884,6 @@ page_t * delete_entry(page_t * key_page, int key_index) {
     // k_prime_index is 0 when left sibling is not exist
     // k_prime_index is neighbor_index when neighbor is exist
     k_prime_index = neighbor_flag == -2 ? 0 : neighbor_flag + 1;
-
-    printf("neighbor_index : %d, k_prime_index : %d\n", neighbor_index, k_prime_index);
 
     // k_prime is key value between 
     // neighbor page pointer and key_page pointer in parent page 

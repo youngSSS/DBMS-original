@@ -9,10 +9,12 @@ int main( void ) {
     char ret_val[120];
     int input_key;
     int result;
+    char a[120];
 
     // Usage
     printf("Enter any of the following commands after the prompt > :\n"
     "\to <pathname>  -- Oepn <pathname> file\n"
+    "\tt <pathname>  -- Oepn <pathname> file\n"
     "\ti <key> <value>  -- Insert <key> <value>\n"
     "\tf <key>  -- Find the value under <key>\n"
     "\td <key>  -- Delete key <key> and its associated value\n"
@@ -28,6 +30,19 @@ int main( void ) {
             if (Unique_table_id < 0) printf("Fail to open file\nFile open fault\n");
             else printf("File open is completed\n");
             break;
+        case 't':
+            strcpy(a, "a");
+            for (int i = 10000; i > 0; i--){
+                db_insert(i, a);
+            }
+            break;
+        case 'D':
+        for (int i = 1; i < 1000000; i++){
+            db_delete(i);
+            
+        }
+        db_print();
+        break;
         case 'i':
             scanf("%d %s", &input_key, input_value);
             result = db_insert(input_key, input_value);
