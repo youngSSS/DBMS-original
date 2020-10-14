@@ -44,11 +44,57 @@ pagenum_t dequeue(){
 }
 
 
+// Open
+
+int index_open(char * pathname) {
+    return open_file(pathname);
+}
+
+int index_check_file_size(int unique_table_id) {
+    return check_file_size(unique_table_id);
+}
+
+
 // Print
+
+void print_leaf() {
+    page_t* page = (page_t*)malloc(sizeof(page_t));
+    pagenum_t temp_pagenum;
+    int i = 0;
+
+    if (header_page->h.root_pagenum == 0) {
+        printf("Tree is empty\n");
+        return;
+    }
+
+    file_read_page(header_page->h.root_pagenum, page);
+
+    while (!page->p.is_leaf) {
+        temp_pagenum = page->p.one_more_pagenum;
+        file_read_page(temp_pagenum, page);
+    }
+
+    while (1) {
+        for (int j = 0; j < page->p.num_keys; j++)
+            printf("%lu ", page->p.l_records[j].key);
+        printf("| ");
+
+        if (page->p.right_sibling_pagenum == 0)
+            break;
+
+        file_read_page(page->p.right_sibling_pagenum, page);
+    }
+
+    printf("\n");
+
+    free(page);
+}
+
 
 void print_file() {
     page_t* page = (page_t*)malloc(sizeof(page_t));
     int i = 0;
+    int err_cnt = 0;
 
     if (header_page->h.root_pagenum == 0) {
         printf("Tree is empty\n");
@@ -76,6 +122,7 @@ void print_file() {
 
             else {
                 printf("[%lu] ", page->p.one_more_pagenum);
+                
                 enqueue(page->p.one_more_pagenum);
 
                 for (i = 0; i < page->p.num_keys; i++) {
@@ -127,6 +174,8 @@ void print_file() {
     }
 
     printf("\n");
+
+    free(page);
 }
 
 
@@ -399,6 +448,7 @@ int insert_into_page_after_splitting(page_t * old_page, int left_index, int64_t 
     child_page = (page_t*)malloc(sizeof(page_t));
 
     file_read_page(new_page->p.one_more_pagenum, child_page);
+    child_page->p.parent_pagenum = new_pagenum;
     file_write_page(new_page->p.one_more_pagenum, child_page);
 
     for (i = 0; i < new_page->p.num_keys; i++) {
@@ -487,26 +537,23 @@ int insert(uint64_t key, char* value) {
     leafRecord leaf_record;
     page_t* leaf_page;
 
-    /* The current implementation ignores duplicates */
+    // The current implementation ignores duplicates
     if (find(key) != NULL) return 1;
 
-    /* Create a new record for the value. */
+    // Create a new record for the value
     leaf_record = make_leaf_record(key, value);
 
-    /* Case : the tree does not exist yet.
-     * Start a new tree.
-     */
+    /* Case : the tree does not exist yet */
+
     if (header_page->h.root_pagenum == 0) {
         start_new_tree(key, leaf_record);
         return 0;
     }
 
-    /* Case : the tree already exists.
-     * (Rest of function body.)
-     */
     leaf_page = find_leaf_page(key);
 
     /* Case : leaf has room for record */
+
     if (leaf_page->p.num_keys < leaf_order - 1)
         insert_into_leaf(leaf_page, key, leaf_record);
 
@@ -658,6 +705,8 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
 
 page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbor, int neighbor_flag, 
         int k_prime_index, int k_prime) {  
+
+    // Only internal page can reach this function
     
     page_t * temp_page;
     pagenum_t key_pagenum, neighbor_pagenum, parent_pagenum;
@@ -682,131 +731,77 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
 
     if (neighbor_flag != -2) {
 
-        /* Case : internal page */
-        
-        if (!key_page->p.is_leaf) {
+        // Move key_page's 0th pagenum to the end 
+        // Move k_prime to end of key_page to maintain tree property
+        // End means last (pagenum or key) of key_page after redistribution
+        key_page->p.i_records[move_cnt].pagenum = key_page->p.one_more_pagenum;
+        key_page->p.i_records[move_cnt].key = k_prime;
+        key_page->p.num_keys++;
 
-            // Move key_page's 0th pagenum to the end 
-            // Move k_prime to end of key_page to maintain tree property
-            // End means last (pagenum or key) of key_page after redistribution
-            key_page->p.i_records[move_cnt].pagenum = key_page->p.one_more_pagenum;
-            key_page->p.i_records[move_cnt].key = k_prime;
+        // Take a records from the neighbor to key_page
+        for (i = 0; i < move_cnt; i++) {
+            key_page->p.i_records[i] = neighbor->p.i_records[i + move_start_index];
             key_page->p.num_keys++;
-
-            // Take a records from the neighbor to key_page
-            for (i = 0; i < move_cnt; i++) {
-                key_page->p.i_records[i] = neighbor->p.i_records[i + move_start_index];
-                key_page->p.num_keys++;
-                neighbor->p.num_keys--;
-            }
-
-            key_page->p.one_more_pagenum = neighbor->p.i_records[move_start_index - 1].pagenum;
-
-            // Take a k_prime from neighbor to parent
-            parent->p.i_records[k_prime_index].key = neighbor->p.i_records[move_start_index - 1].key;
             neighbor->p.num_keys--;
+        }
 
-            temp_page = (page_t*)malloc(sizeof(page_t));
+        key_page->p.one_more_pagenum = neighbor->p.i_records[move_start_index - 1].pagenum;
 
-            // Change parent of key_page's children
-            file_read_page(key_page->p.one_more_pagenum, temp_page);
+        // Take a k_prime from neighbor to parent
+        parent->p.i_records[k_prime_index].key = neighbor->p.i_records[move_start_index - 1].key;
+        neighbor->p.num_keys--;
+
+        temp_page = (page_t*)malloc(sizeof(page_t));
+
+        // Change parent of key_page's children
+        file_read_page(key_page->p.one_more_pagenum, temp_page);
+        temp_page->p.parent_pagenum = key_pagenum;
+        file_write_page(key_page->p.one_more_pagenum, temp_page);
+
+        for (i = 0; i < key_page->p.num_keys; i++) {
+            file_read_page(key_page->p.i_records[i].pagenum, temp_page);
             temp_page->p.parent_pagenum = key_pagenum;
-            file_write_page(key_page->p.one_more_pagenum, temp_page);
-
-            for (i = 0; i < key_page->p.num_keys; i++) {
-                file_read_page(key_page->p.i_records[i].pagenum, temp_page);
-                temp_page->p.parent_pagenum = key_pagenum;
-                file_write_page(key_page->p.i_records[i].pagenum, temp_page);
-            }
-
-            free(temp_page);
+            file_write_page(key_page->p.i_records[i].pagenum, temp_page);
         }
 
-        /* Case : leaf page */
-
-        else {
-
-            if (num_neighbor_keys == 2) {
-                move_cnt = 1;
-                move_start_index = 1;
-            }
-
-            // Take a records from the neighbor to key_page
-            for (i = 0; i < move_cnt; i++) {
-                key_page->p.l_records[i] = neighbor->p.l_records[i + move_start_index];
-                key_page->p.num_keys++;
-                neighbor->p.num_keys--;
-            }
-
-            // Take a k_prime from neighbor to parent
-            parent->p.i_records[k_prime_index].key = key_page->p.l_records[0].key;
-        }
+        free(temp_page);
     }
 
     /* Case: neighbor is right sibling of key_page */
 
     else {  
 
-        /* Case : internal page */
+        key_page->p.i_records[0].key = k_prime;
+        key_page->p.num_keys++;
 
-        if (!key_page->p.is_leaf) {
-
-            key_page->p.i_records[0].key = k_prime;
+        // Take a records from the neighbor to key_page
+        key_page->p.i_records[0].pagenum = neighbor->p.one_more_pagenum;
+        for (i = 0; i < move_cnt; i++) {
+            key_page->p.i_records[i + 1] = neighbor->p.i_records[i];
             key_page->p.num_keys++;
-
-            // Take a records from the neighbor to key_page
-            key_page->p.i_records[0].pagenum = neighbor->p.one_more_pagenum;
-            for (i = 0; i < move_cnt; i++) {
-                key_page->p.i_records[i + 1] = neighbor->p.i_records[i];
-                key_page->p.num_keys++;
-                neighbor->p.num_keys--;
-            }
-
-            // Reset k_prime
-            parent->p.i_records[k_prime_index].key = neighbor->p.i_records[i].key;
             neighbor->p.num_keys--;
-
-            // Rearrangement neighbor
-            neighbor->p.one_more_pagenum = neighbor->p.i_records[i].pagenum;
-            for (++i, j = 0; i < num_neighbor_keys; i++, j++) {
-                neighbor->p.i_records[j] = neighbor->p.i_records[i];
-            }
-
-            temp_page = (page_t*)malloc(sizeof(page_t));
-
-            // Change parent of key_page's children
-            for (i = 0; i < key_page->p.num_keys; i++) {
-                file_read_page(key_page->p.i_records[i].pagenum, temp_page);
-                temp_page->p.parent_pagenum = key_pagenum;
-                file_write_page(key_page->p.i_records[i].pagenum, temp_page);
-            }
-
-            free(temp_page);
         }
 
-        /* Case : leaf page */
+        // Reset k_prime
+        parent->p.i_records[k_prime_index].key = neighbor->p.i_records[i].key;
+        neighbor->p.num_keys--;
 
-        else {
-
-            if (num_neighbor_keys == 2) {
-                move_cnt = 1;
-                move_start_index = 1;
-            }
-            
-            // Take a records from the neighbor to key_page
-            for (i = 0; i < move_cnt; i++) {
-                key_page->p.i_records[i] = neighbor->p.i_records[i];
-                key_page->p.num_keys++;
-                neighbor->p.num_keys--;
-            }
-
-            // Rearrangement neighbor
-            for (i = move_cnt, j = 0; i < num_neighbor_keys; i++, j++)
-                neighbor->p.l_records[j] = neighbor->p.l_records[i];
-
-            // Reset k_prime
-            parent->p.i_records[k_prime_index].key = neighbor->p.i_records[0].key;
+        // Rearrangement neighbor
+        neighbor->p.one_more_pagenum = neighbor->p.i_records[i].pagenum;
+        for (++i, j = 0; i < num_neighbor_keys; i++, j++) {
+            neighbor->p.i_records[j] = neighbor->p.i_records[i];
         }
+
+        temp_page = (page_t*)malloc(sizeof(page_t));
+
+        // Change parent of key_page's children
+        for (i = 0; i < key_page->p.num_keys; i++) {
+            file_read_page(key_page->p.i_records[i].pagenum, temp_page);
+            temp_page->p.parent_pagenum = key_pagenum;
+            file_write_page(key_page->p.i_records[i].pagenum, temp_page);
+        }
+
+        free(temp_page);
     }
 
     file_write_page(parent_pagenum, parent);
@@ -843,7 +838,6 @@ page_t * delete_entry(page_t * key_page, int key_index) {
     pagenum_t neighbor_pagenum;
     int neighbor_index, neighbor_flag;
     int k_prime_index, k_prime;
-    int capacity;
 
     // Remove key and pointer from node.
     key_page = remove_entry_from_page(key_page, key_index);
@@ -889,13 +883,20 @@ page_t * delete_entry(page_t * key_page, int key_index) {
     // neighbor page pointer and key_page pointer in parent page 
     k_prime = parent->p.i_records[k_prime_index].key;
 
-    capacity = key_page->p.is_leaf ? ((leaf_order - 1) / 2) : ((internal_order - 1) / 2);
+    /* Case : key_page is leaf page */
 
-    if (neighbor->p.num_keys <= capacity)
+    if (key_page->p.is_leaf)
         return coalesce_nodes(parent, key_page, neighbor, neighbor_flag, k_prime);
 
-    else
-        return redistribute_nodes(parent, key_page, neighbor, neighbor_flag, k_prime_index, k_prime);
+    /* Case : key_page is internal page */
+
+    else {
+        if (neighbor->p.num_keys == internal_order - 1)
+            return redistribute_nodes(parent, key_page, neighbor, neighbor_flag, k_prime_index, k_prime);
+
+        else
+            return coalesce_nodes(parent, key_page, neighbor, neighbor_flag, k_prime);
+    }
 }
 
 

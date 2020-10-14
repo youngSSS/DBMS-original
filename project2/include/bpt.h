@@ -10,7 +10,7 @@
 #include "file.h"
 
 // Max size of queue
-#define MAX 1000
+#define MAX 100000000
 
 extern page_t * header_page;
 
@@ -21,8 +21,14 @@ int IsFull();
 void enqueue(pagenum_t pagenum);
 pagenum_t dequeue();
 
+// Open
+
+int index_open(char * pathname);
+int index_check_file_size(int unique_table_id);
+
 // Print
 
+void print_leaf();
 void print_file();
 void find_and_print(uint64_t key);
 

@@ -12,12 +12,12 @@ int open_table(char * pathname) {
 	int file_num;
     int file_size;
 
-	Unique_table_id = open_file(pathname);
+	Unique_table_id = index_open(pathname);
 
     if (Unique_table_id < 0) 
         return Unique_table_id;
 
-    file_size = check_file_size(Unique_table_id);
+    file_size = index_check_file_size(Unique_table_id);
 
     header_page = (page_t*)malloc(sizeof(page_t));
 
@@ -71,4 +71,8 @@ int db_find(int64_t key, char * ret_val) {
 
 void db_print() {
     print_file();
+}
+
+void db_print_leaf() {
+    print_leaf();
 }

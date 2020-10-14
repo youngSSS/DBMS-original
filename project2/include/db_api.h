@@ -15,5 +15,6 @@ int db_insert(int64_t key, char * value);
 int db_delete(int64_t key);
 int db_find(int64_t key, char * ret_val);
 void db_print();
+void db_print_leaf();
 
 #endif /* __DB_API_H__*/

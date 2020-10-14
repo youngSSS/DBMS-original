@@ -23,9 +23,6 @@
 // Value size
 #define VALUE_SIZE 120
 
-// Max size of queue
-#define MAX 1000
-
 // Default order of leaf page and internal page
 #define DEFAULT_LEAF_ORDER 32
 #define DEFAULT_INTERNAL_ORDER 249

@@ -10,15 +10,18 @@ int main( void ) {
     int input_key;
     int result;
     char a[120];
+    int in_num, del_num;
 
     // Usage
     printf("Enter any of the following commands after the prompt > :\n"
     "\to <pathname>  -- Oepn <pathname> file\n"
-    "\tt <pathname>  -- Oepn <pathname> file\n"
     "\ti <key> <value>  -- Insert <key> <value>\n"
     "\tf <key>  -- Find the value under <key>\n"
     "\td <key>  -- Delete key <key> and its associated value\n"
     "\tp  -- Print the data file in B+ tree structure\n"
+    "\tI <num>  -- Insert <num> ~ 1\n"
+    "\tD <num>  -- Delete 1 ~ <num - 1>\n"
+    "\tl  -- Print all leaf records\n"
     "\tq  -- Quit\n");
     
     printf("> ");
@@ -30,19 +33,18 @@ int main( void ) {
             if (Unique_table_id < 0) printf("Fail to open file\nFile open fault\n");
             else printf("File open is completed\n");
             break;
-        case 't':
+        case 'I':
+            scanf("%d", &in_num);
             strcpy(a, "a");
-            for (int i = 10000; i > 0; i--){
+            for (int i = 1; i <= in_num; i++)
                 db_insert(i, a);
-            }
             break;
         case 'D':
-        for (int i = 1; i < 1000000; i++){
-            db_delete(i);
-            
-        }
-        db_print();
-        break;
+            scanf("%d", &del_num);
+            for (int i = 1; i <= del_num; i++)
+                db_delete(i);
+            db_print();
+            break;
         case 'i':
             scanf("%d %s", &input_key, input_value);
             result = db_insert(input_key, input_value);
@@ -69,6 +71,9 @@ int main( void ) {
             break;
         case 'p':
             db_print();
+            break;
+        case 'l':
+            db_print_leaf();
             break;
         case 'q':
             while (getchar() != (int)'\n');
