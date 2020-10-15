@@ -14,6 +14,7 @@ int open_table(char * pathname);
 int db_insert(int64_t key, char * value);
 int db_delete(int64_t key);
 int db_find(int64_t key, char * ret_val);
+int db_close(int table_id);
 void db_print();
 void db_print_leaf();
 

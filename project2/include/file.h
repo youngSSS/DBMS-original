@@ -27,6 +27,8 @@
 #define DEFAULT_LEAF_ORDER 32
 #define DEFAULT_INTERNAL_ORDER 249
 
+extern int Unique_table_id;
+
 
 typedef uint64_t pagenum_t;
 
@@ -92,7 +94,8 @@ void file_free_page(pagenum_t pagenum);
 void file_read_page(pagenum_t pagenum, page_t* dest);
 void file_write_page(pagenum_t pagenum, const page_t* src);
 int open_file(char * pathname);
-int check_file_size(int unique_table_id);
+int close_file(int table_id);
+int check_file_size(int table_id);
 
 void make_free_pages();
 

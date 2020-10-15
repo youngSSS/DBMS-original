@@ -50,6 +50,16 @@ int index_open(char * pathname) {
     return open_file(pathname);
 }
 
+
+// Close
+
+int index_close(int table_id) {
+    return close_file(table_id);
+}
+
+
+// Check file size
+
 int index_check_file_size(int unique_table_id) {
     return check_file_size(unique_table_id);
 }
@@ -550,7 +560,7 @@ int insert(uint64_t key, char* value) {
     // The current implementation ignores duplicates
     if (duplicate_flag != NULL) {
         free(duplicate_flag);
-        return 1;
+        return 2;
     }
 
     free(duplicate_flag);
@@ -938,7 +948,7 @@ int delete(uint64_t key) {
 
     if (key_record == NULL) {
         free(key_record);
-        return 1;
+        return 2;
     }
     
     if (key_record != NULL && key_leaf_page != NULL) {

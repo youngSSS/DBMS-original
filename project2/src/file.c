@@ -71,10 +71,14 @@ int open_file(char * pathname) {
 }
 
 
-int check_file_size(int unique_table_id){
-    return check_file_size_from_disk(unique_table_id);
+int close_file(int table_id) {
+    return close_file_from_disk(table_id);
 }
 
+
+int check_file_size(int table_id){
+    return check_file_size_from_disk(table_id);
+}
 
 
 /* When there is no free page for file,

@@ -19,9 +19,10 @@ int main( void ) {
     "\tf <key>  -- Find the value under <key>\n"
     "\td <key>  -- Delete key <key> and its associated value\n"
     "\tp  -- Print the data file in B+ tree structure\n"
+    "\tl  -- Print all leaf records\n"
     "\tI <num>  -- Insert <num> ~ 1\n"
     "\tD <num>  -- Delete 1 ~ <num - 1>\n"
-    "\tl  -- Print all leaf records\n"
+    "\tc  -- Close file\n"
     "\tq  -- Quit\n");
     
     printf("> ");
@@ -48,25 +49,25 @@ int main( void ) {
         case 'i':
             scanf("%d %s", &input_key, input_value);
             result = db_insert(input_key, input_value);
-            if (result != 0) printf("Duplicate key\nInsertion fault\n");
-            else printf("Insertion is completed.\n");
+            if (result == 0) printf("Insertion is completed\n");
+            else if (result == 1) printf("File is not opened yet\nOpen the file\n");
+            else if (result == 2) printf("Duplicate key\nInsertion fault\n");
             db_print();
             break;
         case 'f':
             scanf("%d", &input_key);
             result = db_find(input_key, ret_val);
-            if (result != 0) printf("No such key\nFind fault");
-            else {
-                printf("key : %d, value : %s\n", input_key, ret_val);
-                printf("Find is completed\n");
-            }
+            if (result == 0) printf("key : %d, value : %s\nFind is completed\n", input_key, ret_val);
+            else if (result == 1) printf("File is not opened yet\nOpen the file\n");
+            else if (result == 2) printf("No such key\nFind fault");
             db_print();
             break;
         case 'd':
             scanf("%d", &input_key);
             result = db_delete(input_key);
-            if (result != 0) printf("No such key\nDeletion fault\n");
-            else printf("Deletion is completed\n");
+            if (result == 0) printf("Deletion is completed\n");
+            else if (result == 1) printf("File is not opened yet\nOpen the file\n");
+            else if (result == 2) printf("No such key\nDeletion fault\n");
             db_print();
             break;
         case 'p':
@@ -74,6 +75,11 @@ int main( void ) {
             break;
         case 'l':
             db_print_leaf();
+            break;
+        case 'c':
+            if (db_close(Unique_table_id) == 0)
+                printf("File close is completed\n");
+            else printf("Close table fault\n");
             break;
         case 'q':
             while (getchar() != (int)'\n');
