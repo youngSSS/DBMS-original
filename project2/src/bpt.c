@@ -58,7 +58,7 @@ int index_check_file_size(int unique_table_id) {
 // Print
 
 void print_leaf() {
-    page_t* page = (page_t*)malloc(sizeof(page_t));
+    page_t* page = make_page();
     pagenum_t temp_pagenum;
     int i = 0;
 
@@ -92,7 +92,7 @@ void print_leaf() {
 
 
 void print_file() {
-    page_t* page = (page_t*)malloc(sizeof(page_t));
+    page_t* page = make_page();
     int i = 0;
     int err_cnt = 0;
 
@@ -183,6 +183,7 @@ void find_and_print(uint64_t key) {
     leafRecord * r = find(key);
     if (r == NULL) printf("Record not found under key %lu.\n", key);
     else printf("Record -- key %lu, value %s.\n", key, r->value);
+    free(r);
 }
 
 
@@ -198,7 +199,7 @@ page_t * find_leaf_page(uint64_t key) {
     /* Case : Empty file */
     if (root_pagenum == 0) return NULL;
     
-    page = (page_t*)malloc(sizeof(page_t));
+    page = make_page();
     file_read_page(root_pagenum, page);
 
     while (!page->p.is_leaf) {
@@ -223,17 +224,20 @@ leafRecord * find(uint64_t key) {
     int i = 0;
 
     page_t * leaf_page = find_leaf_page(key);
-    leafRecord * leaf_record;
+    leafRecord * leaf_record = (leafRecord*)malloc(sizeof(leafRecord));
 
     // Case : Empty file
     if (leaf_page == NULL) return NULL;
 
     for (i = 0; i < leaf_page->p.num_keys; i++)
         if (leaf_page->p.l_records[i].key == key){
-            leaf_record = &leaf_page->p.l_records[i];
+            leaf_record->key = leaf_page->p.l_records[i].key;
+            strcpy(leaf_record->value, leaf_page->p.l_records[i].value);
             free(leaf_page);
             return leaf_record;
         }
+
+    free(leaf_page);
 
     return NULL;
 }
@@ -261,19 +265,9 @@ leafRecord make_leaf_record(uint64_t key, char * value) {
 }
 
 
-internalRecord make_internal_record(uint64_t key, pagenum_t pagenum) {
-    internalRecord new_record;
-
-    new_record.key = key;
-    new_record.pagenum = pagenum;
-
-    return new_record;
-}
-
-
 page_t * make_page( void ) {
     page_t* new_page;
-    new_page = malloc(sizeof(page_t));
+    new_page = (page_t*)malloc(sizeof(page_t));
 
     if (new_page == NULL) {
         perror("Page creation.");
@@ -327,6 +321,8 @@ int insert_into_leaf( page_t* leaf_page, uint64_t key, leafRecord leaf_record ) 
     leaf_page->p.num_keys++;
 
     file_write_page(get_pagenum(leaf_page), leaf_page);
+
+    free(leaf_page);
 
     return 1;
 }
@@ -396,6 +392,8 @@ int insert_into_page(page_t * parent, int left_index, uint64_t key, pagenum_t ri
 
     file_write_page(get_pagenum(parent), parent);
 
+    free(parent);
+
     return 1;
 }
 
@@ -445,7 +443,7 @@ int insert_into_page_after_splitting(page_t * old_page, int left_index, int64_t 
     file_write_page(new_pagenum, new_page);
 
     // Change parent of new_page's children
-    child_page = (page_t*)malloc(sizeof(page_t));
+    child_page = make_page();
 
     file_read_page(new_page->p.one_more_pagenum, child_page);
     child_page->p.parent_pagenum = new_pagenum;
@@ -472,10 +470,13 @@ int insert_into_parent(page_t * left, uint64_t key, page_t * right, pagenum_t ri
     if (left->p.parent_pagenum == 0)
         return insert_into_new_root(left, key, right, right_pagenum);
 
-    parent = (page_t*)malloc(sizeof(page_t));
+    parent = make_page();
     file_read_page(left->p.parent_pagenum, parent);
 
     left_index = get_left_index(parent, left);
+
+    free(left);
+    free(right);
 
     if (parent->p.num_keys < internal_order - 1)
         return insert_into_page(parent, left_index, key, right_pagenum);
@@ -508,6 +509,10 @@ int insert_into_new_root(page_t * left, uint64_t key, page_t * right, pagenum_t 
     file_write_page(right_pagenum, right);
     file_write_page(root_pagenum, root);
 
+    free(left);
+    free(right);
+    free(root);
+
     return 1;
 }
 
@@ -528,17 +533,27 @@ void start_new_tree(uint64_t key, leafRecord leaf_record) {
 
     file_write_page(pagenum, root);
 	file_write_page(0, header_page);
+
+    free(root);
 }
 
 
 /* Master insertion function */
 int insert(uint64_t key, char* value) {
 
+    leafRecord * duplicate_flag;
     leafRecord leaf_record;
     page_t* leaf_page;
 
+    duplicate_flag = find(key);
+
     // The current implementation ignores duplicates
-    if (find(key) != NULL) return 1;
+    if (duplicate_flag != NULL) {
+        free(duplicate_flag);
+        return 1;
+    }
+
+    free(duplicate_flag);
 
     // Create a new record for the value
     leaf_record = make_leaf_record(key, value);
@@ -605,7 +620,7 @@ page_t * adjust_root(page_t * root_page) {
 
     // If it has a child, promote the first (only) child as the new root.
     if (!root_page->p.is_leaf) {
-        new_root_page = (page_t*)malloc(sizeof(page_t));
+        new_root_page = make_page();
 
         file_read_page(root_page->p.one_more_pagenum, new_root_page);
         header_page->h.root_pagenum = root_page->p.one_more_pagenum;
@@ -621,6 +636,8 @@ page_t * adjust_root(page_t * root_page) {
 
     file_write_page(0, header_page);
     file_free_page(root_pagenum);
+
+    free(root_page);
 
     return header_page;
 }
@@ -648,7 +665,7 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
     /* Case : internal page */
 
     if (!key_page->p.is_leaf) {
-        temp_page = (page_t*)malloc(sizeof(page_t));
+        temp_page = make_page();
 
         neighbor->p.i_records[neighbor_insertion_index].key = k_prime;
         neighbor->p.num_keys++; 
@@ -696,6 +713,9 @@ page_t * coalesce_nodes(page_t * parent, page_t * key_page, page_t * neighbor, i
 
     file_write_page(neighbor_pagenum, neighbor);
     file_free_page(key_pagenum);
+
+    free(key_page);
+    free(neighbor);
 
     delete_entry(parent, key_index);
     
@@ -751,7 +771,7 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
         parent->p.i_records[k_prime_index].key = neighbor->p.i_records[move_start_index - 1].key;
         neighbor->p.num_keys--;
 
-        temp_page = (page_t*)malloc(sizeof(page_t));
+        temp_page = make_page();
 
         // Change parent of key_page's children
         file_read_page(key_page->p.one_more_pagenum, temp_page);
@@ -792,7 +812,7 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
             neighbor->p.i_records[j] = neighbor->p.i_records[i];
         }
 
-        temp_page = (page_t*)malloc(sizeof(page_t));
+        temp_page = make_page();
 
         // Change parent of key_page's children
         for (i = 0; i < key_page->p.num_keys; i++) {
@@ -807,6 +827,10 @@ page_t * redistribute_nodes(page_t * parent, page_t * key_page, page_t * neighbo
     file_write_page(parent_pagenum, parent);
     file_write_page(key_pagenum, key_page);
     file_write_page(neighbor_pagenum, neighbor);
+
+    free(parent);
+    free(key_page);
+    free(neighbor);
 
     return header_page;
 }
@@ -850,12 +874,14 @@ page_t * delete_entry(page_t * key_page, int key_index) {
     /* Case : Delayed merge  */
 
     // If page has a key, do nothing
-    if (key_page->p.num_keys != 0)
+    if (key_page->p.num_keys != 0) {
+        free(key_page);
         return header_page;
+    }
 
     // get_neighbor index function
 
-    parent = (page_t*)malloc(sizeof(page_t));
+    parent = make_page();
     file_read_page(key_page->p.parent_pagenum, parent);
 
     key_index = get_neighbor_index(parent, key_page);
@@ -872,7 +898,7 @@ page_t * delete_entry(page_t * key_page, int key_index) {
     else 
         neighbor_pagenum = parent->p.i_records[neighbor_index].pagenum;
 
-    neighbor = (page_t*)malloc(sizeof(page_t));
+    neighbor = make_page();
     file_read_page(neighbor_pagenum, neighbor);
 
     // k_prime_index is 0 when left sibling is not exist
@@ -900,7 +926,6 @@ page_t * delete_entry(page_t * key_page, int key_index) {
 }
 
 
-
 /* Master deletion function */
 int delete(uint64_t key) {
 
@@ -911,10 +936,13 @@ int delete(uint64_t key) {
     key_leaf_page = find_leaf_page(key);
     key_record = find(key);
 
-    if (key_record == NULL)
+    if (key_record == NULL) {
+        free(key_record);
         return 1;
+    }
     
     if (key_record != NULL && key_leaf_page != NULL) {
+        free(key_record);
         for (int i = 0; i < key_leaf_page->p.num_keys; i++) {
             if (key_leaf_page->p.l_records[i].key == key) {
                 key_index = i;
@@ -924,9 +952,6 @@ int delete(uint64_t key) {
 
         header_page = delete_entry(key_leaf_page, key_index);
     }
-
-    
-    free(key_leaf_page);
 
     return 0;
 }
@@ -951,7 +976,7 @@ pagenum_t get_pagenum(page_t* page) {
     else 
         my_key = page->p.i_records[0].key;
 
-    parent_page = (page_t*)malloc(sizeof(page_t));
+    parent_page = make_page();
     file_read_page(parent_pagenum, parent_page);
 
     for (i = 0; i < parent_page->p.num_keys; i++) {
@@ -963,6 +988,8 @@ pagenum_t get_pagenum(page_t* page) {
         pagenum = parent_page->p.one_more_pagenum;
     else 
         pagenum = parent_page->p.i_records[i - 1].pagenum;
+
+    free(parent_page);
 
     return pagenum;
 }

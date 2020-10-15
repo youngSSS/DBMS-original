@@ -40,7 +40,6 @@ leafRecord * find(uint64_t key);
 // Insertion.
 
 leafRecord make_leaf_record(uint64_t key, char* value);
-internalRecord make_internal_record(uint64_t key, pagenum_t pagenum);
 page_t * make_page( void );
 page_t * make_leaf_pgae( void );
 int get_left_index(page_t * parent, page_t * left);
