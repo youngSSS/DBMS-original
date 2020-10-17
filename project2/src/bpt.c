@@ -189,7 +189,7 @@ void print_file() {
 }
 
 
-void find_and_print(uint64_t key) {
+void find_and_print(int64_t key) {
     leafRecord * r = find(key);
     if (r == NULL) printf("Record not found under key %lu.\n", key);
     else printf("Record -- key %lu, value %s.\n", key, r->value);
@@ -199,7 +199,7 @@ void find_and_print(uint64_t key) {
 
 /* Find */
 
-page_t * find_leaf_page(uint64_t key) {
+page_t * find_leaf_page(int64_t key) {
     int i = 0;
     pagenum_t root_pagenum;
     page_t * page;
@@ -230,7 +230,7 @@ page_t * find_leaf_page(uint64_t key) {
 }
 
 
-leafRecord * find(uint64_t key) {
+leafRecord * find(int64_t key) {
     int i = 0;
 
     page_t * leaf_page = find_leaf_page(key);
@@ -265,7 +265,7 @@ int cut( int length ) {
 
 /* Insertion */
 
-leafRecord make_leaf_record(uint64_t key, char * value) {
+leafRecord make_leaf_record(int64_t key, char * value) {
     leafRecord new_record;
 
     new_record.key = key;
@@ -316,7 +316,7 @@ int get_left_index(page_t * parent, page_t * left) {
 }
 
 
-int insert_into_leaf( page_t* leaf_page, uint64_t key, leafRecord leaf_record ) {
+int insert_into_leaf( page_t* leaf_page, int64_t key, leafRecord leaf_record ) {
 
     int i, insertion_point;
 
@@ -338,7 +338,7 @@ int insert_into_leaf( page_t* leaf_page, uint64_t key, leafRecord leaf_record ) 
 }
 
 
-int insert_into_leaf_after_splitting(page_t * leaf_page, uint64_t key, leafRecord leaf_record) {
+int insert_into_leaf_after_splitting(page_t * leaf_page, int64_t key, leafRecord leaf_record) {
 
     page_t * new_leaf_page;
     pagenum_t new_leaf_pagenum;
@@ -390,7 +390,7 @@ int insert_into_leaf_after_splitting(page_t * leaf_page, uint64_t key, leafRecor
 }
 
 
-int insert_into_page(page_t * parent, int left_index, uint64_t key, pagenum_t right_pagenum) {
+int insert_into_page(page_t * parent, int left_index, int64_t key, pagenum_t right_pagenum) {
     int i;
 
     for (i = parent->p.num_keys; i > left_index + 1 ; i--)
@@ -472,7 +472,7 @@ int insert_into_page_after_splitting(page_t * old_page, int left_index, int64_t 
 }
 
 
-int insert_into_parent(page_t * left, uint64_t key, page_t * right, pagenum_t right_pagenum) {
+int insert_into_parent(page_t * left, int64_t key, page_t * right, pagenum_t right_pagenum) {
 
     int left_index;
     page_t * parent;
@@ -495,7 +495,7 @@ int insert_into_parent(page_t * left, uint64_t key, page_t * right, pagenum_t ri
 }
 
 
-int insert_into_new_root(page_t * left, uint64_t key, page_t * right, pagenum_t right_pagenum) {
+int insert_into_new_root(page_t * left, int64_t key, page_t * right, pagenum_t right_pagenum) {
 
     page_t * root = make_page();
     pagenum_t root_pagenum, left_pagenum;
@@ -527,7 +527,7 @@ int insert_into_new_root(page_t * left, uint64_t key, page_t * right, pagenum_t 
 }
 
 
-void start_new_tree(uint64_t key, leafRecord leaf_record) {
+void start_new_tree(int64_t key, leafRecord leaf_record) {
     pagenum_t pagenum;
     page_t * root;
 
@@ -549,7 +549,7 @@ void start_new_tree(uint64_t key, leafRecord leaf_record) {
 
 
 /* Master insertion function */
-int insert(uint64_t key, char* value) {
+int insert(int64_t key, char* value) {
 
     leafRecord * duplicate_flag;
     leafRecord leaf_record;
@@ -937,7 +937,7 @@ page_t * delete_entry(page_t * key_page, int key_index) {
 
 
 /* Master deletion function */
-int delete(uint64_t key) {
+int delete(int64_t key) {
 
     page_t * key_leaf_page;
     leafRecord * key_record;

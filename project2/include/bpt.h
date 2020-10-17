@@ -37,27 +37,27 @@ int index_check_file_size(int unique_table_id);
 
 void print_leaf();
 void print_file();
-void find_and_print(uint64_t key);
+void find_and_print(int64_t key);
 
 // Find
 
-page_t * find_leaf_page(uint64_t key);
-leafRecord * find(uint64_t key);
+page_t * find_leaf_page(int64_t key);
+leafRecord * find(int64_t key);
 
 // Insertion.
 
-leafRecord make_leaf_record(uint64_t key, char* value);
+leafRecord make_leaf_record(int64_t key, char* value);
 page_t * make_page( void );
 page_t * make_leaf_pgae( void );
 int get_left_index(page_t * parent, page_t * left);
-int insert_into_leaf( page_t* leaf_page, uint64_t key, leafRecord leaf_record );
-int insert_into_leaf_after_splitting(page_t * leaf_page, uint64_t key, leafRecord leaf_record);
-int insert_into_page(page_t * parent, int left_index, uint64_t key, pagenum_t right_pagenum);
+int insert_into_leaf( page_t* leaf_page, int64_t key, leafRecord leaf_record );
+int insert_into_leaf_after_splitting(page_t * leaf_page, int64_t key, leafRecord leaf_record);
+int insert_into_page(page_t * parent, int left_index, int64_t key, pagenum_t right_pagenum);
 int insert_into_page_after_splitting(page_t * old_page, int left_index, int64_t key, pagenum_t right_pagenum);
-int insert_into_parent(page_t * left, uint64_t key, page_t * right, pagenum_t right_pagenum);
-int insert_into_new_root(page_t * left, uint64_t key, page_t * right, pagenum_t right_pagenum);
-void start_new_tree(uint64_t key, leafRecord leaf_record);
-int insert(uint64_t key, char* value);
+int insert_into_parent(page_t * left, int64_t key, page_t * right, pagenum_t right_pagenum);
+int insert_into_new_root(page_t * left, int64_t key, page_t * right, pagenum_t right_pagenum);
+void start_new_tree(int64_t key, leafRecord leaf_record);
+int insert(int64_t key, char* value);
 
 // Deletion.
 page_t * remove_entry_from_page(page_t * page, int key_index);
@@ -67,7 +67,7 @@ page_t * redistribute_nodes(page_t * parent_page, page_t * key_page, page_t * ne
 			int neighbor_flag, int k_prime_index, int k_prime);
 int get_neighbor_index(page_t * parent, page_t * key_page);
 page_t * delete_entry(page_t * key_page, int key_index);
-int delete(uint64_t key);
+int delete(int64_t key);
 
 // Etc
 pagenum_t get_pagenum(page_t* page);
