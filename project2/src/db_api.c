@@ -9,36 +9,7 @@ int Unique_table_id = -1;
 
 
 int open_table(char * pathname) {
-	int file_num;
-    int file_size;
-
-	Unique_table_id = index_open(pathname);
-
-    if (Unique_table_id < 0) 
-        return Unique_table_id;
-
-    file_size = index_check_file_size(Unique_table_id);
-
-    header_page = (page_t*)malloc(sizeof(page_t));
-
-    /* Case : File is empty */
-
-    // Create header page
-    if (file_size == 0) {
-        header_page->h.free_pagenum = 0;
-        header_page->h.root_pagenum = 0;
-        header_page->h.num_pages = 1;
-
-        file_write_page(0, header_page);
-    }
-
-    /* Case : File is not empty */
-
-    //Copy an on-disk header page to in-memory header page.
-    else 
-        file_read_page(0, header_page);
-
-	return Unique_table_id;
+	return index_open(pathname);
 }
 
 // return 0 : insert success

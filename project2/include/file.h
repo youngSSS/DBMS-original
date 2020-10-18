@@ -95,7 +95,6 @@ void file_read_page(pagenum_t pagenum, page_t* dest);
 void file_write_page(pagenum_t pagenum, const page_t* src);
 int open_file(char * pathname);
 int close_file(int table_id);
-int check_file_size(int table_id);
 
 void make_free_pages();
 

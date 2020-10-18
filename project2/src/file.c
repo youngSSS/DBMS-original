@@ -67,17 +67,40 @@ void file_write_page(pagenum_t pagenum, const page_t* src){
 
 
 int open_file(char * pathname) {
-    return open_file_from_disk(pathname);
+    int file_size;
+
+    Unique_table_id = open_file_from_disk(pathname);
+
+    if (Unique_table_id < 0) 
+        return Unique_table_id;
+
+    file_size = check_file_size_from_disk(Unique_table_id);
+
+    header_page = (page_t*)malloc(sizeof(page_t));
+
+    /* Case : File is empty */
+
+    // Create header page
+    if (file_size == 0) {
+        header_page->h.free_pagenum = 0;
+        header_page->h.root_pagenum = 0;
+        header_page->h.num_pages = 1;
+
+        file_write_page(0, header_page);
+    }
+
+    /* Case : File is not empty */
+
+    //Copy an on-disk header page to in-memory header page.
+    else 
+        file_read_page(0, header_page);
+
+    return Unique_table_id;
 }
 
 
 int close_file(int table_id) {
     return close_file_from_disk(table_id);
-}
-
-
-int check_file_size(int table_id){
-    return check_file_size_from_disk(table_id);
 }
 
 

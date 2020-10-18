@@ -29,9 +29,6 @@ int index_open(char * pathname);
 
 int index_close(int table_id);
 
-// Check file size
-
-int index_check_file_size(int unique_table_id);
 
 // Print
 
