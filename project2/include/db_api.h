@@ -5,17 +5,32 @@
 
 #include "file.h"
 
-extern int Unique_table_id;
-extern page_t * header_page;
+// Positioned in file.cpp
+extern map<int, string> Table_id_pathname;
+extern map<string, int> Pathname_table_id;
 
-/* DB API Functions */
+using namespace std;
+
+
+/* ----- DB API Functions ----- */
+
+// APIs for Buffer
+
+int init_db(int buf_num);
+int shutdown_db( void );
+
+// APIs for File
 
 int open_table(char * pathname);
-int db_insert(int64_t key, char * value);
-int db_delete(int64_t key);
-int db_find(int64_t key, char * ret_val);
-int db_close(int table_id);
-void db_print();
-void db_print_leaf();
+int db_insert(int table_id, int64_t key, char * value);
+int db_find(int table_id, int64_t key, char * ret_val);
+int db_delete(int table_id, int64_t key);
+int close_table(int table_id);
+
+// Help Functions
+
+void db_print(int table_id);
+void db_print_leaf(int table_id);
+int is_opened(int table_id);
 
 #endif /* __DB_API_H__*/

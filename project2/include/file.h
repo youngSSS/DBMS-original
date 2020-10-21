@@ -1,11 +1,15 @@
 #ifndef __FILE_H__
 #define __FILE_H__
 
-#include <stdio.h>
+#include <sys/types.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <string>
+#include <map>
 
 // Guideline of size
 #define PAGE_SIZE 4096
@@ -27,7 +31,7 @@
 #define DEFAULT_LEAF_ORDER 32
 #define DEFAULT_INTERNAL_ORDER 249
 
-extern int Unique_table_id;
+using namespace std;
 
 
 typedef uint64_t pagenum_t;
@@ -87,15 +91,17 @@ typedef struct page_t {
 } page_t;
 
 
-/* File API functions */
+/* ---------- File APIs ---------- */
 
-pagenum_t file_alloc_page();
-void file_free_page(pagenum_t pagenum);
-void file_read_page(pagenum_t pagenum, page_t* dest);
-void file_write_page(pagenum_t pagenum, const page_t* src);
-int open_file(char * pathname);
-int close_file(int table_id);
+int file_open(char * pathname);
+int file_close(int table_id);
+pagenum_t file_alloc_page(int table_id);
+void file_free_page(int table_id, pagenum_t pagenum);
+void file_read_page(int table_id, pagenum_t pagenum, page_t* dest);
+void file_write_page(int table_id, pagenum_t pagenum, const page_t* src);
 
-void make_free_pages();
+int file_alloc_table_id(int fd);
+page_t * make_free_pages(int table_id, page_t * header_page);
+
 
 #endif /* __FILE_H__*/
