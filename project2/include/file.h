@@ -9,7 +9,6 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string>
-#include <map>
 
 // Guideline of size
 #define PAGE_SIZE 4096
@@ -100,8 +99,9 @@ void file_free_page(int table_id, pagenum_t pagenum);
 void file_read_page(int table_id, pagenum_t pagenum, page_t* dest);
 void file_write_page(int table_id, pagenum_t pagenum, const page_t* src);
 
-int file_alloc_table_id(int fd);
+int get_table_id (string pathname);
 page_t * make_free_pages(int table_id, page_t * header_page);
+void file_print_table_list();
 
 
 #endif /* __FILE_H__*/

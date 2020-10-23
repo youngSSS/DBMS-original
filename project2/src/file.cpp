@@ -5,10 +5,10 @@
 
 
 // Globals
-map<int, string> Table_id_pathname;
-map<string, int> Pathname_table_id;
-map<int, int> Table_id_fd;
-int Table_id_list[11] = {0, };
+string Pathname[11] = {"", };
+// Is_open has file descriptor value
+uint8_t Is_open[11] = {0, };
+uint8_t Open_cnt = 0;
 
 
 /* ---------- File APIs ---------- */
@@ -19,13 +19,19 @@ int file_open(char * pathname) {
     string temp_pathname(pathname);
     int file_size;
     int table_id, fd;
-    
-    /* Case : pathname file is already open */
 
-    if (Pathname_table_id.find(temp_pathname) != Pathname_table_id.end()) {
-        printf("File is already open\nTable_id : %d\n", Pathname_table_id[temp_pathname]);
-        return Pathname_table_id[temp_pathname];
+    table_id = get_table_id(temp_pathname);
+
+    /* Case : File is already opened */
+
+    if (Is_open[table_id] > 0) {
+    	printf("File is already opened\n");
+    	return table_id;
     }
+
+    /* Case : Can not open more than 10 */
+
+    if (table_id == -2) return -2;
 
     fd = open(pathname, O_RDWR | O_CREAT, S_IRWXU);
 
@@ -33,18 +39,12 @@ int file_open(char * pathname) {
 
     if (fd == -1) return -1;
 
-    table_id = file_alloc_table_id(fd);
-
-    /* Case : open more than 10 pages */
-
-    if (table_id == -1) return -2;
-
     /* Case : open success */
 
-    Table_id_pathname[table_id] = temp_pathname;
-    Pathname_table_id[temp_pathname] = table_id;
+    Pathname[table_id] = temp_pathname;
+    Is_open[table_id] = fd;
 
-    file_size = lseek(table_id, 0, SEEK_END);
+    file_size = lseek(fd, 0, SEEK_END);
 
     /* Case : file is empty */
 
@@ -64,22 +64,13 @@ int file_open(char * pathname) {
 
 
 int file_close(int table_id) {
-    int fd;
+    int result;
     
-    /* Case : file having table_id is not exist */
+    result = close(Is_open[table_id]);
 
-    if (Table_id_pathname.find(table_id) == Table_id_pathname.end())
-        return 1;
+    Is_open[table_id] = 0;
 
-    /* Case : close */
-
-    fd = Table_id_fd[table_id];
-
-    Pathname_table_id.erase(Table_id_pathname[table_id]);
-    Table_id_pathname.erase(table_id);
-    Table_id_list[table_id] = 0;
-
-    return close(fd);
+    return result;
 }
 
 
@@ -150,7 +141,7 @@ void file_free_page(int table_id, pagenum_t pagenum) {
 void file_read_page(int table_id, pagenum_t pagenum, page_t * dest) { 
     int result, fd;
 
-    fd = Table_id_fd[table_id];
+    fd = Is_open[table_id];
 
     result = pread(fd, dest, PAGE_SIZE, pagenum * PAGE_SIZE);
 
@@ -162,32 +153,13 @@ void file_read_page(int table_id, pagenum_t pagenum, page_t * dest) {
 void file_write_page(int table_id, pagenum_t pagenum, const page_t * src) { 
     int result, fd;
 
-    fd = Table_id_fd[table_id];
+    fd = Is_open[table_id];
     
     result = pwrite(fd, src, PAGE_SIZE, pagenum * PAGE_SIZE);
 
     if (fsync(table_id) != 0) printf("fsync fault\n");
 
     if (result == -1) printf("write_to_file fault in disk_manager.c\n");
-}
-
-
-int file_alloc_table_id(int fd) {
-    int table_id, i;
-
-    for (i = 1; i <= 10; i++) {
-        if (Table_id_list[i] == 0) {
-            Table_id_list[i] = 1;
-            table_id = i;
-            break;
-        }
-    }
-
-    if (i == 11) return -1;
-
-    Table_id_fd[table_id] = fd;
-
-    return table_id;
 }
 
 
@@ -223,4 +195,27 @@ page_t * make_free_pages(int table_id, page_t * header_page) {
 	printf("End\n");
 
     return header_page;
+}
+
+
+int get_table_id (string pathname) {
+
+	for (int i = 1; i <= 10; i++) {
+		if (pathname == Pathname[i])
+			return i;
+	}
+
+	if (Open_cnt == 10) return -2;
+
+	return ++Open_cnt;
+}
+
+
+void file_print_table_list() {
+	for (int i = 1; i <= 10; i++) {
+		if (Is_open[i] > 0)
+			printf("Table id : [ %d ], File name : [ %s ]\n", i, Pathname[i].c_str());
+		else
+			printf("Table id : [ - ], File name : [ %s ]  ** Not opened **\n", Pathname[i].c_str());
+	}
 }

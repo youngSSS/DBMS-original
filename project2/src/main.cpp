@@ -3,6 +3,7 @@
 #include "db_api.h"
 #include "buffer_manager.h"
 
+// For buffer hit ratio
 double hit_cnt = 0, miss_cnt = 0;
 
 int main( void ) {
@@ -20,6 +21,7 @@ int main( void ) {
     char a[120];
     int64_t in_start, in_end, del_start, del_end;
 
+    // For time checking
     time_t start, end;
 
     // Usage
@@ -57,11 +59,13 @@ int main( void ) {
 
             case 'b':
                 scanf("%d", &buf_size);
-                init_db(buf_size);
+                result = init_db(buf_size);
+                if (result == 0) printf("Buffer creation is completed\n");
+                else if (result == 1) printf("Buffer creation fault\n");
                 break;
 
             case 'i':
-                scanf("%d %lld %s", &table_id, &input_key, input_value);
+                scanf("%d %lld %[^\n]", &table_id, &input_key, input_value);
                 start = clock();
                 result = db_insert(table_id, input_key, input_value);
                 end = clock();
@@ -147,6 +151,10 @@ int main( void ) {
                 db_print_leaf(table_id);
                 break;
 
+            case 'T':
+                db_print_table_list();
+                break;
+
             case 's':
                 result = shutdown_db();
                 if (result == 0) printf("Shutdown is completed\n");
@@ -155,6 +163,7 @@ int main( void ) {
                 break;
 
             case 'c':
+            	scanf("%d", &table_id);
                 result = close_table(table_id);
                 if (result == 0) printf("Close is completed\n");
                 else if (result == 1) printf("File having table_id is not exist\nClose fault\n");

@@ -5,6 +5,7 @@
 buffer_t * buffer = NULL;
 BufferHeader buffer_header;
 
+
 /* --- For layered architecture --- */
 
 // File
@@ -15,16 +16,19 @@ int buf_open(char * pathname) {
 
 
 int buf_close(int table_id) {
+
 	// Write all pages of this table from buffer to disk.
-	map<pagenum_t, framenum_t>::iterator iter;
+	if (buffer != NULL) {
+		map<pagenum_t, framenum_t>::iterator iter;
 
-	for (iter = buffer_header.hash_table[table_id].begin(); iter != buffer_header.hash_table[table_id].end(); iter++) {
-		// Write a dirty frame(page) to disk
-		if (buffer[iter->second].is_dirty == 1)
-			file_write_page(table_id, iter->first, &buffer[iter->second].frame);
+		for (iter = buffer_header.hash_table[table_id].begin(); iter != buffer_header.hash_table[table_id].end(); iter++) {
+			// Write a dirty frame(page) to disk
+			if (buffer[iter->second].is_dirty == 1)
+				file_write_page(table_id, iter->first, &buffer[iter->second].frame);
+		}
+
+		buffer_header.hash_table[table_id].clear();
 	}
-
-	buffer_header.hash_table[table_id].clear();
 
 	return file_close(table_id);
 }
@@ -39,13 +43,20 @@ void buf_free_page(int table_id, pagenum_t pagenum) {
 	file_free_page(table_id, pagenum);
 }
 
+void buffer_print_table_list() {
+	file_print_table_list();
+}
+
 
 /* ---------- Buffer APIs ---------- */
 
 int create_buffer(int num_buf) {
 	buffer = (buffer_t*)malloc(sizeof(buffer_t) * num_buf);
 
-	if (buffer == NULL) printf("create_buffer fault in buffer_manager.cpp\n");
+	if (buffer == NULL) {
+		printf("create_buffer fault in buffer_manager.cpp\n");
+		return 1;
+	}
 
 	// Set buffer
 	for (int i = 0;  i < num_buf; i++) {
@@ -53,18 +64,15 @@ int create_buffer(int num_buf) {
 		buffer[i].pagenum = 0;
 		buffer[i].is_dirty = 0;
 		buffer[i].pin_cnt = 0;
-		buffer[i].ref_bit = 0;
-		buffer[i].LRU_list_next = 0;
-		buffer[i].next_free_framenum = i + 1;
+		buffer[i].next_of_LRU = -1;
+		buffer[i].prev_of_LRU = -1;
 	}
-	buffer[num_buf - 1].next_free_framenum = -1;
 
 	// Set buffer header
 	buffer_header.free_framenum = 0;
 	buffer_header.buffer_size = num_buf;
-	buffer_header.clock_hand = 0;
-
-	printf("Buffer is created\n");
+	buffer_header.LRU_head = -1;
+	buffer_header.LRU_tail = -1;
 
 	return 0;
 }
@@ -93,38 +101,65 @@ int destroy_buffer( void ) {
 }
 
 
-framenum_t lru_policy(int table_id, pagenum_t pagenum, framenum_t clock_hand) {
+void LRU_linking(int framenum) {
+	framenum_t old_head, tail;
+
+	// First LRU linking
+	if (buffer_header.LRU_head == -1) {
+		buffer[framenum].next_of_LRU = framenum;
+		buffer[framenum].prev_of_LRU = framenum;
+
+		buffer_header.LRU_head = framenum;
+		buffer_header.LRU_tail = framenum;
+	}
+
+	else {
+
+		if (buffer_header.LRU_head == framenum)
+			return;
+
+		if (buffer[framenum].next_of_LRU != -1) {
+
+			if (buffer_header.LRU_tail == framenum)
+				buffer_header.LRU_tail = buffer[framenum].prev_of_LRU;
+
+			buffer[buffer[framenum].next_of_LRU].prev_of_LRU = buffer[framenum].prev_of_LRU;
+			buffer[buffer[framenum].prev_of_LRU].next_of_LRU = buffer[framenum].next_of_LRU;
+		}
+
+		old_head = buffer_header.LRU_head;
+		tail = buffer_header.LRU_tail;
+
+		buffer[framenum].prev_of_LRU = buffer[old_head].prev_of_LRU;
+		buffer[framenum].next_of_LRU = buffer[tail].next_of_LRU;
+
+		buffer[old_head].prev_of_LRU = framenum;
+		buffer[tail].next_of_LRU = framenum;
+
+		buffer_header.LRU_head = framenum;
+	}
+}
+
+
+framenum_t LRU_policy() {
 	framenum_t framenum;
 
+	framenum = buffer_header.LRU_tail;
+
 	while (true) {
-		if (buffer[clock_hand].pin_cnt == 0 && buffer[clock_hand].ref_bit == 0) {
-			
-			if (buffer[clock_hand].is_dirty == 1)
-				file_write_page(buffer[clock_hand].table_id, buffer[clock_hand].pagenum, &buffer[clock_hand].frame);
-		
-			buffer_header.hash_table[buffer[clock_hand].table_id].erase(buffer[clock_hand].pagenum);	
-			
-			file_read_page(table_id, pagenum, &buffer[clock_hand].frame);
 
-			buffer[clock_hand].table_id = table_id;
-			buffer[clock_hand].pagenum = pagenum;
-			buffer[clock_hand].is_dirty = 0;
-			buffer[clock_hand].pin_cnt = 0;
-			buffer[clock_hand].ref_bit = 1;
-			buffer[clock_hand].LRU_list_next = 0;
+		if (buffer[framenum].pin_cnt == 0) {
 
-			framenum = clock_hand;
+			if (buffer[framenum].is_dirty == 1)
+				file_write_page(buffer[framenum].table_id, buffer[framenum].pagenum, &buffer[framenum].frame);
 
-			buffer_header.hash_table[table_id][pagenum] = framenum;
-			buffer_header.clock_hand = (clock_hand + 1) % buffer_header.buffer_size;
+			buffer_header.hash_table[buffer[framenum].table_id].erase(buffer[framenum].pagenum);	
 
 			break;
 		}
 
-		else if (buffer[clock_hand].pin_cnt == 0 && buffer[clock_hand].ref_bit == 1)
-			buffer[clock_hand].ref_bit = 0;
-
-		clock_hand = (clock_hand + 1) % buffer_header.buffer_size;
+		else
+			framenum = buffer[framenum].prev_of_LRU;
 	}
 
 	return framenum;
@@ -134,8 +169,19 @@ framenum_t lru_policy(int table_id, pagenum_t pagenum, framenum_t clock_hand) {
 framenum_t buf_alloc_frame(int table_id, pagenum_t pagenum) {
 	framenum_t framenum;
 
-	framenum = buffer_header.free_framenum;
-	buffer_header.free_framenum = buffer[framenum].next_free_framenum;
+	miss_cnt++;
+
+	/* Case : Buffer has no empty frame */
+
+	if (buffer_header.free_framenum == buffer_header.buffer_size)
+		framenum = LRU_policy();
+
+	/* Case : Buffer has empty frame */
+
+	else {
+		framenum = buffer_header.free_framenum;
+		buffer_header.free_framenum++;
+	}
 
 	file_read_page(table_id, pagenum, &buffer[framenum].frame);
 
@@ -143,8 +189,6 @@ framenum_t buf_alloc_frame(int table_id, pagenum_t pagenum) {
 	buffer[framenum].pagenum = pagenum;
 	buffer[framenum].is_dirty = 0;
 	buffer[framenum].pin_cnt = 0;
-	buffer[framenum].ref_bit = 1;
-	buffer[framenum].LRU_list_next = 0;
 
 	buffer_header.hash_table[table_id][pagenum] = framenum;
 
@@ -166,24 +210,8 @@ void buf_read_page(int table_id, pagenum_t pagenum, page_t * dest) {
 	/* Case : Buffer is exist */
 
 	// Buffer dose not have a page
-	if (buffer_header.hash_table[table_id].find(pagenum) == buffer_header.hash_table[table_id].end()) {
-		
-		/* Case : Buffer has no empty frame */
-
-		if (buffer_header.free_framenum == -1) {
-			//printf("********** lru - read\n");
-			miss_cnt++;
-			framenum = lru_policy(table_id, pagenum, buffer_header.clock_hand);
-		}
-
-		/* Case : Buffer has empty frame */
-
-		else {
-			//printf("upload to buffer\n");
-			miss_cnt++;
-			framenum = buf_alloc_frame(table_id, pagenum);
-		}
-	}
+	if (buffer_header.hash_table[table_id].find(pagenum) == buffer_header.hash_table[table_id].end())
+		framenum = buf_alloc_frame(table_id, pagenum);
 
 	// Buffer has a page
 	else {
@@ -199,6 +227,8 @@ void buf_read_page(int table_id, pagenum_t pagenum, page_t * dest) {
 
 	// Unset pin
 	buffer[framenum].pin_cnt--;
+
+	LRU_linking(framenum);
 }
 
 
@@ -207,6 +237,7 @@ void buf_write_page(int table_id, pagenum_t pagenum, const page_t * src) {
 	framenum_t framenum;
 
 	/* Case : Buffer is not exist */
+	
 	if (buffer == NULL) {
 		file_write_page(table_id, pagenum, src);
 		return;
@@ -215,24 +246,9 @@ void buf_write_page(int table_id, pagenum_t pagenum, const page_t * src) {
 	/* Case : Buffer is exist */
 
 	// Buffer dose not have a page
-	if (buffer_header.hash_table[table_id].find(pagenum) == buffer_header.hash_table[table_id].end()) {
+	if (buffer_header.hash_table[table_id].find(pagenum) == buffer_header.hash_table[table_id].end())
+		framenum = buf_alloc_frame(table_id, pagenum);
 
-		/* Case : Buffer has no empty frame */
-
-		if (buffer_header.free_framenum == -1) {
-			//printf("\t\t********** LRU - WRITE\n");
-			miss_cnt++;
-			framenum = lru_policy(table_id, pagenum, buffer_header.clock_hand);
-		}
-
-		/* Case : Buffer has empty frame */
-
-		else {
-			//printf("\t\tUPLOAD TO BUFFER\n");
-			miss_cnt++;
-			framenum = buf_alloc_frame(table_id, pagenum);
-		}
-	}
 
 	// Buffer has a page
 	else {
@@ -249,4 +265,6 @@ void buf_write_page(int table_id, pagenum_t pagenum, const page_t * src) {
 
 	// Unset pin
 	buffer[framenum].pin_cnt--;
+
+	LRU_linking(framenum);
 }

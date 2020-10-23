@@ -71,6 +71,11 @@ int index_close(int table_id) {
 }
 
 
+void index_print_table_list() {
+	buffer_print_table_list();
+}
+
+
 /* ---------- Index APIs ---------- */
 
 // Print

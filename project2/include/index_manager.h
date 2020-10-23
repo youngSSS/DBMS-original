@@ -34,6 +34,7 @@ int index_shutdown_buffer( void );
 
 int index_open(char * pathname);
 int index_close(int table_id);
+void index_print_table_list();
 
 
 /* ---------- Index APIs ---------- */
