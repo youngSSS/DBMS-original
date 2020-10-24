@@ -38,16 +38,11 @@ int db_insert(int table_id, int64_t key, char * value) {
 // return 2 : no key
 
 int db_find(int table_id, int64_t key, char * ret_val) {
-	leafRecord* leaf_record;
+    int result;
 
     if (Is_open[table_id] == 0) return 1;
 
-    leaf_record = find(table_id, key);
-    if (leaf_record == NULL) return 2;
-    
-    strcpy(ret_val, leaf_record->value);
-    
-    return 0;
+    return _find(table_id, key, ret_val);
 }
 
 

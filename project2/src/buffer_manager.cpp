@@ -23,8 +23,10 @@ int buf_close(int table_id) {
 
 		for (iter = buffer_header.hash_table[table_id].begin(); iter != buffer_header.hash_table[table_id].end(); iter++) {
 			// Write a dirty frame(page) to disk
-			if (buffer[iter->second].is_dirty == 1)
+			if (buffer[iter->second].is_dirty == 1) {
 				file_write_page(table_id, iter->first, &buffer[iter->second].frame);
+				buffer[iter->second].is_dirty = 0;
+			}
 		}
 
 		buffer_header.hash_table[table_id].clear();

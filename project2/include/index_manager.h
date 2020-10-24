@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/types.h>
+#include <vector>
 
 #include "file.h"
 
@@ -13,6 +14,7 @@
 #define MAX 100000000
 
 using namespace std;
+using p_pnum = pair<page_t *, pagenum_t>;
 
 
 // Queue
@@ -46,38 +48,38 @@ void print_file(int table_id);
 
 // Find
 
-page_t * find_leaf_page(int table_id, int64_t key);
-leafRecord * find(int table_id, int64_t key);
+p_pnum find_leaf_page(int table_id, pagenum_t root_pagenum, int64_t key);
+leafRecord * find(int table_id, pagenum_t root_pagenum, int64_t key);
+int _find(int table_id, int64_t key, char * ret_val);
 
 // Insertion
 
 leafRecord make_leaf_record(int64_t key, char* value);
 page_t * make_page( void );
 page_t * make_leaf_pgae( void );
-int get_left_index(int table_id, page_t * parent, page_t * left);
-void insert_into_leaf(int table_id, page_t* leaf_page, int64_t key, leafRecord leaf_record);
-int insert_into_leaf_after_splitting(int table_id, page_t * leaf_page, int64_t key, leafRecord leaf_record);
-int insert_into_page(int table_id, page_t * parent, int left_index, int64_t key, pagenum_t right_pagenum);
-int insert_into_page_after_splitting(int table_id, page_t * old_page, int left_index, int64_t key, pagenum_t right_pagenum);
-int insert_into_parent(int table_id, page_t * left, int64_t key, page_t * right, pagenum_t right_pagenum);
-int insert_into_new_root(int table_id, page_t * left, int64_t key, page_t * right, pagenum_t right_pagenum);
-int start_new_tree(int table_id, int64_t key, leafRecord leaf_record);
+int get_left_index(int table_id, page_t * parent, pagenum_t left_pagenum);
+void insert_into_leaf(int table_id, p_pnum leaf_pair, int64_t key, leafRecord leaf_record);
+int insert_into_leaf_after_splitting(int table_id, p_pnum leaf_pair, int64_t key, leafRecord leaf_record);
+int insert_into_page(int table_id, p_pnum parent_pair, int left_index, int64_t key, pagenum_t right_pagenum);
+int insert_into_page_after_splitting(int table_id, p_pnum old_pair, int left_index, int64_t key, pagenum_t right_pagenum);
+int insert_into_parent(int table_id, p_pnum left_pair, int64_t key, p_pnum right_pair);
+int insert_into_new_root(int table_id, p_pnum left_pair, int64_t key, p_pnum right_pair);
+int start_new_tree(int table_id, page_t * header_page, int64_t key, leafRecord leaf_record);
 int insert(int table_id, int64_t key, char* value);
 
 // Deletion
 
-page_t * remove_entry_from_page(int table_id, page_t * page, int key_index);
-int adjust_root(int table_id, page_t * root);
-int coalesce_nodes(int table_id, page_t * parent, page_t * key_page, page_t * neighbor, int neighbor_flag, int k_prime);
-int redistribute_nodes(int table_id, page_t * parent_page, page_t * key_page, page_t * neighbor, 
-			int neighbor_flag, int k_prime_index, int k_prime);
-int get_neighbor_index(int table_id, page_t * parent, page_t * key_page);
-int delete_entry(int table_id, page_t * key_page, int key_index);
+page_t * remove_entry_from_page(int table_id, p_pnum page_pair, int key_index);
+int adjust_root(int table_id, p_pnum root_pair);
+int coalesce_nodes(int table_id, page_t * parent, p_pnum key_pair, p_pnum neighbor_pair, int neighbor_index, int k_prime);
+int redistribute_nodes(int table_id, page_t * parent, p_pnum key_pair, p_pnum neighbor_pair, int neighbor_flag
+    , int k_prime_index, int k_prime);
+int get_neighbor_index(int table_id, page_t * parent, p_pnum key_pair);
+int delete_entry(int table_id, p_pnum key_pair, int key_index);
 int _delete(int table_id, int64_t key);
 
 // Etc
 
-pagenum_t get_pagenum(int table_id, page_t* page);
 int cut(int length);
 
 #endif /* __INDEX_MANAGER_H__*/

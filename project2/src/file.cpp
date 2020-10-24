@@ -145,7 +145,7 @@ void file_read_page(int table_id, pagenum_t pagenum, page_t * dest) {
 
     result = pread(fd, dest, PAGE_SIZE, pagenum * PAGE_SIZE);
 
-    if (result == -1) printf("read_from_file fault in disk_manager.c\n");
+    if (result == -1) printf("read_from_file fault in file.c\n");
 }
 
 
@@ -159,7 +159,7 @@ void file_write_page(int table_id, pagenum_t pagenum, const page_t * src) {
 
     if (fsync(table_id) != 0) printf("fsync fault\n");
 
-    if (result == -1) printf("write_to_file fault in disk_manager.c\n");
+    if (result == -1) printf("write_to_file fault in file.c\n");
 }
 
 
