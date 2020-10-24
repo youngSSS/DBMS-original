@@ -65,7 +65,7 @@ int main( void ) {
                 break;
 
             case 'i':
-                scanf("%d %lld %[^\n]", &table_id, &input_key, input_value);
+                scanf("%d %ld %[^\n]", &table_id, &input_key, input_value);
                 start = clock();
                 result = db_insert(table_id, input_key, input_value);
                 end = clock();
@@ -81,9 +81,9 @@ int main( void ) {
                 break;
 
             case 'f':
-                scanf("%d %lld", &table_id, &input_key);
+                scanf("%d %ld", &table_id, &input_key);
                 result = db_find(table_id, input_key, ret_val);
-                if (result == 0) printf("table_id : %d, key : %lld, value : %s\nFind is completed\n", 
+                if (result == 0) printf("table_id : %d, key : %ld, value : %s\nFind is completed\n", 
                     table_id, input_key, ret_val);
                 else if (result == 1) printf("File is not opened yet\nOpen the file\n");
                 else if (result == 2) printf("No such key\nFind fault");
@@ -96,7 +96,7 @@ int main( void ) {
                 break;
 
             case 'd':
-                scanf("%d %lld", &table_id, &input_key);
+                scanf("%d %ld", &table_id, &input_key);
                 result = db_delete(table_id, input_key);
                 if (result == 0) printf("Deletion is completed\n");
                 else if (result == 1) printf("File is not opened yet\nOpen the file\n");
@@ -110,7 +110,7 @@ int main( void ) {
                 break;
 
              case 'I':
-                scanf("%d %lld %lld", &table_id, &in_start, &in_end);
+                scanf("%d %ld %ld", &table_id, &in_start, &in_end);
                 strcpy(a, "a");
                 start = clock();
 
@@ -127,10 +127,10 @@ int main( void ) {
                 break;
 
             case 'D':
-                scanf("%d %lld %lld", &table_id, &del_start, &del_end);
+                scanf("%d %ld %ld", &table_id, &del_start, &del_end);
                 start = clock();
                 for (int i = del_start; i <= del_end; i++)
-                    db_delete(table_id, i);
+					db_delete(table_id, i);
                 end = clock();
                 printf("Time : %f\n", (double)(end - start));
 

@@ -154,10 +154,10 @@ void file_write_page(int table_id, pagenum_t pagenum, const page_t * src) {
     int result, fd;
 
     fd = Is_open[table_id];
-    
+
     result = pwrite(fd, src, PAGE_SIZE, pagenum * PAGE_SIZE);
 
-    if (fsync(table_id) != 0) printf("fsync fault\n");
+    if (fsync(fd) != 0) printf("fsync fault\n");
 
     if (result == -1) printf("write_to_file fault in file.c\n");
 }

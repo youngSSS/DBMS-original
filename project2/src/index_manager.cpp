@@ -104,7 +104,7 @@ void print_leaf(int table_id) {
 
     while (1) {
         for (int j = 0; j < page->p.num_keys; j++)
-            printf("%lld ", page->p.l_records[j].key);
+            printf("%ld ", page->p.l_records[j].key);
         printf("| ");
 
         if (page->p.right_sibling_pagenum == 0)
@@ -149,18 +149,18 @@ void print_file(int table_id) {
 
             if (page->p.is_leaf) {
                 for (i = 0; i < page->p.num_keys; i++) {
-                    printf("(%lld, %s) ", page->p.l_records[i].key, page->p.l_records[i].value);
+                    printf("(%ld, %s) ", page->p.l_records[i].key, page->p.l_records[i].value);
                 }
                 printf(" | ");
             }
 
             else {
-                printf("[%llu] ", page->p.one_more_pagenum);
+                printf("[%lu] ", page->p.one_more_pagenum);
 
                 enqueue(page->p.one_more_pagenum);
 
                 for (i = 0; i < page->p.num_keys; i++) {
-                    printf("%lld [%llu] ", page->p.i_records[i].key, page->p.i_records[i].pagenum);
+                    printf("%ld [%lu] ", page->p.i_records[i].key, page->p.i_records[i].pagenum);
                     enqueue(page->p.i_records[i].pagenum);
                 }
 
@@ -185,13 +185,13 @@ void print_file(int table_id) {
             file_read_page(table_id, pagenum, page);
 
             if (page->p.is_leaf) {
-                printf("pagenum : %llu, parent : %llu, is_leaf : %u, num keys : %u, right sibling : %llu",
+                printf("pagenum : %lu, parent : %lu, is_leaf : %u, num keys : %u, right sibling : %lu",
                        pagenum, page->p.parent_pagenum, page->p.is_leaf, page->p.num_keys, page->p.right_sibling_pagenum);
                 printf(" | ");
             }
 
             else {
-                printf("pagenum : %llu, parent : %llu, is_leaf : %u, num keys : %u, one more : %llu",
+                printf("pagenum : %lu, parent : %lu, is_leaf : %u, num keys : %u, one more : %lu",
                        pagenum, page->p.parent_pagenum, page->p.is_leaf, page->p.num_keys, page->p.one_more_pagenum);
 
                 enqueue(page->p.one_more_pagenum);
@@ -687,7 +687,6 @@ page_t * remove_entry_from_page(int table_id, p_pnum page_pair, int key_index) {
     }
 
     page->p.num_keys--;
-
     buf_write_page(table_id, pagenum, page);
 
     return page;
@@ -743,7 +742,7 @@ int adjust_root(int table_id, p_pnum root_pair) {
 int coalesce_nodes(int table_id, page_t * parent, p_pnum key_pair, p_pnum neighbor_pair, int neighbor_index, int k_prime) {
 
     page_t * key_page, * neighbor, * temp_page;
-    pagenum_t key_pagenum, neighbor_pagenum;
+    pagenum_t parent_pagenum, key_pagenum, neighbor_pagenum;
     int i, j, neighbor_insertion_index, key_index;
 
     if (neighbor_index == -2) {
@@ -761,6 +760,8 @@ int coalesce_nodes(int table_id, page_t * parent, p_pnum key_pair, p_pnum neighb
         neighbor = neighbor_pair.first;
         neighbor_pagenum = neighbor_pair.second;
     }
+
+	parent_pagenum = neighbor->p.parent_pagenum;
 
     neighbor_insertion_index = neighbor->p.num_keys;
 
@@ -819,7 +820,7 @@ int coalesce_nodes(int table_id, page_t * parent, p_pnum key_pair, p_pnum neighb
     free(key_page);
     free(neighbor);
 
-    delete_entry(table_id, make_pair(parent, neighbor->p.parent_pagenum), key_index);
+    delete_entry(table_id, make_pair(parent, parent_pagenum), key_index);
 
     return 0;
 }
