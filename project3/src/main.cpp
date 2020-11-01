@@ -33,7 +33,7 @@ int main( void ) {
 
     // Result of each operation
     int result;
-
+    
     // Usage
     print_usage();
     printf("> ");
@@ -48,6 +48,7 @@ int main( void ) {
                 if (result == 0) printf("DB initailizing is completed\n");
                 else if (result == 1) printf("Buffer creation fault\n");
                 else if (result == 2) printf("DB is already initialized\nDB initializing fault\n");
+                else if (result == 3) printf("Buffer size must be over 0\nDB initializing fault\n");
                 break;
 
             case 'O':
@@ -125,7 +126,7 @@ int main( void ) {
                 printf("Hit ratio : %f\n", hit_cnt / (hit_cnt + miss_cnt) * 100);
                 break;
 
-            case 'T':
+            case 't':
                 db_print_table_list();
                 break;
 

@@ -188,7 +188,7 @@ framenum_t LRU_policy() {
 framenum_t buf_alloc_frame(int table_id, pagenum_t pagenum) {
 	framenum_t framenum;
 
-	miss_cnt++;
+	//miss_cnt++;
 
 	/* Case : Buffer has no empty frame */
 
@@ -225,7 +225,7 @@ framenum_t get_framenum(int table_id, pagenum_t pagenum) {
 
 	// Buffer has a page
 	else {
-		hit_cnt++;
+		//hit_cnt++;
 		framenum = buffer_header.hash_table[table_id][pagenum];
 	}
 

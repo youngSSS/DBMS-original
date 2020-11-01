@@ -11,8 +11,8 @@ using namespace std;
 
 typedef int framenum_t;
 
-extern double hit_cnt;
-extern double miss_cnt;
+//extern double hit_cnt;
+//extern double miss_cnt;
 
 
 /* Buffer Structure */

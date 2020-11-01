@@ -25,10 +25,8 @@ int file_open(char * pathname) {
 
     /* Case : File is already opened */
 
-    if (Is_open[table_id] > 0) {
-    	printf("File is already opened\n");
+    if (Is_open[table_id] > 0) 
     	return table_id;
-    }
 
     /* Case : Can not open more than 10 */
 
@@ -190,8 +188,6 @@ page_t * make_free_pages(int table_id, page_t * header_page) {
     free_page = (page_t*)malloc(sizeof(page_t));
     if (free_page == NULL) printf("make_free_pages in file.cpp\n");
 
-    printf("Start to make 10000 free pages\n");
-
     // Make a free page and write it on on-disk
     start_free_pagenum = header_page->h.num_pages;
     for (i = 0; i < 10000; i++) {
@@ -208,8 +204,6 @@ page_t * make_free_pages(int table_id, page_t * header_page) {
     file_write_page(table_id, start_free_pagenum + i, free_page);
 
     free(free_page);
-
-	printf("End\n");
 
     return header_page;
 }

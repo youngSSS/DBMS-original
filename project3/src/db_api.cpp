@@ -9,8 +9,10 @@
 // return 0 : initializing success
 // return 1 : making buffer error (malloc)
 // return 2 : init_db is already called
+// return 3 : buffer size must be over 0
 
 int init_db(int buf_num) {
+    if (buf_num <= 0) return 3;
     return index_init_db(buf_num);
 }
 
