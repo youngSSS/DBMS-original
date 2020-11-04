@@ -9,17 +9,17 @@
 using namespace std;
 
 typedef struct lock_t lock_t;
-typedef struct lock_table_entry lock_table_entry;
+typedef struct hash_table_entry hash_table_entry;
 
 
 struct lock_t {
-	lock_table_entry * sentinel;
+	hash_table_entry * sentinel;
 	lock_t * prev;
 	lock_t * next;
 	pthread_cond_t cond;
 };
 
-struct lock_table_entry {
+struct hash_table_entry {
 	int table_id;
 	int64_t key;
 	lock_t * head;

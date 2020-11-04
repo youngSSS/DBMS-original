@@ -1,9 +1,7 @@
 #include <lock_table.h>
 
-unordered_map<int64_t, lock_table_entry> lock_hash_table[11];
+unordered_map<int64_t, hash_table_entry> lock_hash_table[11];
 pthread_mutex_t lock_table_latch;
-
-int k = 0;
 
 
 int init_lock_table() {
@@ -18,11 +16,11 @@ lock_t * lock_acquire(int table_id, int64_t key) {
 
 	pthread_mutex_lock(&lock_table_latch);
 	
-	lock_table_entry table_entry;
+	hash_table_entry table_entry;
 	lock_t * lock_obj;
 
 	lock_obj = (lock_t*)malloc(sizeof(lock_t));
-	if (lock_obj == NULL) printf("lock malloc error\n");
+	if (lock_obj == NULL) return NULL;
 
 	if (lock_hash_table[table_id].find(key) == lock_hash_table[table_id].end()) {
 		
@@ -60,7 +58,7 @@ lock_t * lock_acquire(int table_id, int64_t key) {
 }
 
 
-int lock_release(lock_t* lock_obj) {
+int lock_release(lock_t * lock_obj) {
 
 	pthread_mutex_lock(&lock_table_latch);
 
