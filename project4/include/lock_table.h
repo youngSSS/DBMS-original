@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <utility>
+#include <functional>
 #include <unordered_map>
 
 using namespace std;

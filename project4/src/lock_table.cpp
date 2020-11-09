@@ -1,6 +1,6 @@
 #include <lock_table.h>
 
-unordered_map<int64_t, hash_table_entry> lock_hash_table[11];
+unordered_map< int, unordered_map< int64_t, hash_table_entry > > lock_hash_table;
 pthread_mutex_t lock_table_latch;
 
 
