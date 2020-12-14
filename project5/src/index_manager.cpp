@@ -52,7 +52,11 @@ pagenum_t dequeue(){
 // Buffer
 
 int index_init_db(int buf_num) {
-    init_lock_table();
+    if (init_lock_table() == 1)
+        return 4;
+
+    init_trx();
+
     return buf_init_db(buf_num);
 }
 
@@ -106,7 +110,10 @@ int trx_find(int table_id, int64_t key, char * ret_val, int trx_id) {
     pagenum = page->h.root_pagenum;
 
     /* Case : key is not exist */
-    if (pagenum == 0) return 1;
+    if (pagenum == 0) {
+        free(page);
+        return 1;
+    }
 
     // Read root page
     buf_read_page(table_id, pagenum, page);
@@ -129,11 +136,16 @@ int trx_find(int table_id, int64_t key, char * ret_val, int trx_id) {
     
     for (i = 0; i < page->p.num_keys; i++) {
 
-        // Acquire and release shared lock
-        lock_obj = lock_acquire(table_id, i, trx_id, 0);
-        if (lock_obj == NULL) return 2;
+        if (key == page->p.l_records[i].key) {
+            // Acquire and release shared lock
+            lock_obj = lock_acquire(table_id, page->p.l_records[i].key, trx_id, 0);
+            if (lock_obj == NULL) {
+                free(page);
+                return 2;
+            }
 
-        if (key == page->p.l_records[i].key){
+            buf_read_page(table_id, pagenum, page);
+
             strcpy(ret_val, page->p.l_records[i].value);
             free(page);
             return 0;
@@ -163,7 +175,10 @@ int trx_update(int table_id, int64_t key, char * values, int trx_id) {
     pagenum = page->h.root_pagenum;
 
     /* Case : key is not exist */
-    if (pagenum == 0) return 1;
+    if (pagenum == 0) {
+        free(page);
+        return 1;
+    }
 
     // Read root page
     buf_read_page(table_id, pagenum, page);
@@ -186,14 +201,16 @@ int trx_update(int table_id, int64_t key, char * values, int trx_id) {
     
     for (i = 0; i < page->p.num_keys; i++) {
 
-        // Acquire and release shared lock
-        lock_obj = lock_acquire(table_id, i, trx_id, 0);
-        if (lock_obj == NULL) return 2;
-
         if (key == page->p.l_records[i].key){
-            lock_obj = lock_acquire(table_id, i, trx_id, 1);
-            if (lock_obj == NULL) return 2;
-            trx_logging(table_id, key, page->p.l_records[i].value, trx_id);
+            lock_obj = lock_acquire(table_id, page->p.l_records[i].key, trx_id, 1);
+            if (lock_obj == NULL) {
+                free(page);
+                return 2;
+            }
+
+            buf_read_page(table_id, pagenum, page);
+
+            trx_logging(lock_obj, page->p.l_records[i].value);
             strcpy(page->p.l_records[i].value, values);
             buf_write_page(table_id, pagenum, page);
             free(page);
@@ -212,7 +229,6 @@ int trx_update(int table_id, int64_t key, char * values, int trx_id) {
 int undo(int table_id, int64_t key, char * old_value) {
     page_t * page;
     pagenum_t pagenum;
-    lock_t * lock_obj;
     int i;
 
     // Get page from buffer
@@ -244,9 +260,7 @@ int undo(int table_id, int64_t key, char * old_value) {
 
     for (i = 0; i < page->p.num_keys; i++) {
         if (key == page->p.l_records[i].key){
-            printf("before undo : %s, Thread id : %u\n", page->p.l_records[i].value, pthread_self());
             strcpy(page->p.l_records[i].value, old_value);
-            printf("after undo : %s, Thread id : %u\n", page->p.l_records[i].value, pthread_self());
             buf_write_page(table_id, pagenum, page);
             free(page);
             return 0;

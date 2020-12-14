@@ -11,6 +11,7 @@
 // return 1 : making buffer error (malloc)
 // return 2 : init_db is already called
 // return 3 : buffer size must be over 0
+// return 4 : lock table initialize error
 
 int init_db(int buf_num) {
     if (buf_num <= 0) return 3;
@@ -50,33 +51,37 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id) {
     int result;
 
     if (trx_abort_check(trx_id) == 1) {
-        printf("Aborted Trx\n");
+//        printf("db_api - abort check\n");
         return 1;
     }
 
+
     if (table_id > 10) {
-        printf("Table id fault\n");
-        return 0;
+//        printf("db_api - table_id\n");
+        return 1;
     }
 
+
     if (get_is_open(table_id) == 0) {
-        printf("Open fault\n");
-        return 0;
+//        printf("db_api - is open\n");
+        return 1;
     }
+
 
     result = trx_find(table_id, key, ret_val, trx_id);
 
     /* Case : Abort */
     if (result == 2) {
+//        printf("db_api - abort\n");
         trx_abort(trx_id);
         return 1;
     }
 
-    else if (result == 0) {
-        printf("success\n");
+    else if (result == 1) {
+//        printf("No key\n");
+        trx_abort(trx_id);
+        return 1;
     }
-
-    else printf("No key\n");
 
     return 0;
 }
@@ -104,19 +109,15 @@ int db_delete(int table_id, int64_t key) {
 int db_update(int table_id, int64_t key, char * values, int trx_id) {
     int result;
 
-    if (trx_abort_check(trx_id) == 1) {
-        printf("Aborted Trx\n");
+    if (trx_abort_check(trx_id) == 1)
         return 1;
-    }
 
-    if (table_id > 10) {
-        printf("Table id fault\n");
-        return 0;
-    }
+    if (table_id > 10)
+        return 1;
 
     if (get_is_open(table_id) == 0) {
-        printf("Open fault\n");
-        return 0;
+//        printf("Open fault\n");
+        return 1;
     }
 
     result = trx_update(table_id, key, values, trx_id);
@@ -127,11 +128,11 @@ int db_update(int table_id, int64_t key, char * values, int trx_id) {
         return 1;
     }
 
-    else if (result == 0) {
-        printf("success\n");
+    else if (result == 1) {
+//        printf("No key\n");
+        trx_abort(trx_id);
+        return 1;
     }
-    
-    else printf("No key\n");
 
     return 0;
 }

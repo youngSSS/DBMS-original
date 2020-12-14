@@ -185,7 +185,7 @@ page_t * make_free_pages(int table_id, page_t * header_page) {
 
     // Make a free page and write it on on-disk
     start_free_pagenum = header_page->h.num_pages;
-    for (i = 0; i < 10000; i++) {
+    for (i = 0; i < 10; i++) {
         free_page->f.next_free_pagenum = start_free_pagenum + i + 1;
         file_write_page(table_id, start_free_pagenum + i, free_page);
         header_page->h.num_pages++;

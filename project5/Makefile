@@ -32,10 +32,10 @@ TARGET=main
 all: $(TARGET)
 
 $(TARGET): $(TARGET_OBJ) $(STATIC_LIB)
-	$(CC) $(CFLAGS) $< -o $@ -L $(LIBS) -lbpt
+	$(CC) $(CFLAGS) $< -o $@ -L $(LIBS) -lbpt -lpthread
 
 %.o: %.cpp
-	$(CC) $(CFLAGS) $^ -c -o $@
+	$(CC) $(CFLAGS) $^ -c -o $@ -lpthread
 
 clean:
 	rm $(TARGET) $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)*
