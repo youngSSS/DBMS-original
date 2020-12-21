@@ -60,13 +60,13 @@ framenum_t LRU_policy( void );
 framenum_t buf_alloc_frame(int table_id, pagenum_t pagenum);
 
 // Buffer Read & Write
-framenum_t get_framenum(int table_id, pagenum_t pagenum);
+framenum_t get_framenum(int table_id, pagenum_t pagenum, int page_latch_flag);
 void buf_read_page(int table_id, pagenum_t pagenum, page_t * dest);
 void buf_write_page(int table_id, pagenum_t pagenum, const page_t * src);
 
 // Buffer Read & Write for transaction operations
-pthread_mutex_t * mutex_buf_read(int table_id, pagenum_t pagenum, page_t * dest);
-pthread_mutex_t * mutex_buf_write(int table_id, pagenum_t pagenum, const page_t * src);
+pthread_mutex_t * mutex_buf_read(int table_id, pagenum_t pagenum, page_t * dest, int page_latch_flag);
+void mutex_buf_write(int table_id, pagenum_t pagenum, const page_t * src, int page_latch_flag);
 
 
 #endif /* __BUFFER_MANAGER_H__*/

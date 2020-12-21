@@ -68,7 +68,6 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 	int trx_exist_flag = 0;
 
 
-
 	/* Case 1 : Nothing in lock list */
 	if (lock_list_existence_check(table_id, key) == 0) {
 
@@ -101,7 +100,6 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
         lock_obj->trx_id = trx_id;
         lock_obj->lock_mode = lock_mode;
         lock_obj->is_waiting = 0;
-        lock_obj->undo = 0;
         lock_obj->sentinel = table_entry;
         lock_obj->prev = NULL;
         lock_obj->next = NULL;
@@ -186,7 +184,6 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
                                 lock_obj->trx_id = trx_id;
                                 lock_obj->lock_mode = lock_mode;
                                 lock_obj->is_waiting = 1;
-                                lock_obj->undo = 0;
                                 lock_obj->sentinel = Lock_Table[table_id][key];
                                 lock_obj->prev = NULL;
                                 lock_obj->next = NULL;
@@ -278,7 +275,6 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
             lock_obj->trx_id = trx_id;
             lock_obj->lock_mode = lock_mode;
             lock_obj->is_waiting = 1;
-            lock_obj->undo = 0;
             lock_obj->sentinel = Lock_Table[table_id][key];
             lock_obj->prev = NULL;
             lock_obj->next = NULL;

@@ -105,7 +105,8 @@ void buf_flush(int table_id) {
     unordered_map< pagenum_t, framenum_t >::iterator iter;
 
     // WAL protocol
-    write_log(0);
+    write_log(0, 0);
+    write_log(1, 0);
 
     for (iter = Buffer_Header.hash_table[table_id].begin(); iter != Buffer_Header.hash_table[table_id].end(); iter++) {
         // Write a dirty frame(page) to disk
@@ -180,7 +181,8 @@ framenum_t LRU_policy() {
 
             if (Buffer[framenum].is_dirty == 1) {
                 // WAL protocol
-                write_log(0);
+                write_log(0, 0);
+                write_log(1, 0);
                 file_write_page(Buffer[framenum].table_id, Buffer[framenum].pagenum, &Buffer[framenum].frame);
             }
 
@@ -225,7 +227,7 @@ framenum_t buf_alloc_frame(int table_id, pagenum_t pagenum) {
 }
 
 
-framenum_t get_framenum(int table_id, pagenum_t pagenum) {
+framenum_t get_framenum(int table_id, pagenum_t pagenum, int page_latch_flag) {
 
     framenum_t framenum;
 
@@ -239,10 +241,12 @@ framenum_t get_framenum(int table_id, pagenum_t pagenum) {
     else {
         framenum = Buffer_Header.hash_table[table_id][pagenum];
 
-        /* Case : Thread fails to catch page latch */
-        if (pthread_mutex_trylock(&Buffer[framenum].page_latch) != 0) {
-            pthread_mutex_unlock(&Buffer_Latch);
-            return -1;
+        if (page_latch_flag == 0) {
+            /* Case : Thread fails to catch page latch */
+            if (pthread_mutex_trylock(&Buffer[framenum].page_latch) != 0) {
+                pthread_mutex_unlock(&Buffer_Latch);
+                return -1;
+            }
         }
     }
 
@@ -261,11 +265,11 @@ void buf_read_page(int table_id, pagenum_t pagenum, page_t * dest) {
     }
 
     /* Case : Buffer is exist */
-    framenum = get_framenum(table_id, pagenum);
+    framenum = get_framenum(table_id, pagenum, 0);
 
     /* Case : Thread failed to catch page latch */
     while (framenum == -1)
-        framenum = get_framenum(table_id, pagenum);
+        framenum = get_framenum(table_id, pagenum, 0);
 
     LRU_linking(framenum);
 
@@ -292,11 +296,11 @@ void buf_write_page(int table_id, pagenum_t pagenum, const page_t * src) {
     }
 
     /* Case : Buffer is exist */
-    framenum = get_framenum(table_id, pagenum);
+    framenum = get_framenum(table_id, pagenum, 0);
 
     /* Case : Thread failed to catch page latch */
     while (framenum == -1)
-        framenum = get_framenum(table_id, pagenum);
+        framenum = get_framenum(table_id, pagenum, 0);
 
     // Change LRU page
     LRU_linking(framenum);
@@ -314,7 +318,7 @@ void buf_write_page(int table_id, pagenum_t pagenum, const page_t * src) {
 }
 
 
-pthread_mutex_t * mutex_buf_read(int table_id, pagenum_t pagenum, page_t * dest) {
+pthread_mutex_t * mutex_buf_read(int table_id, pagenum_t pagenum, page_t * dest, int page_latch_flag) {
 
     framenum_t framenum;
 
@@ -327,11 +331,11 @@ pthread_mutex_t * mutex_buf_read(int table_id, pagenum_t pagenum, page_t * dest)
 
     /* Case : Buffer is exist */
 
-    framenum = get_framenum(table_id, pagenum);
+    framenum = get_framenum(table_id, pagenum, page_latch_flag);
 
     /* Case : Thread failed to catch page latch */
     while (framenum == -1)
-        framenum = get_framenum(table_id, pagenum);
+        framenum = get_framenum(table_id, pagenum, page_latch_flag);
 
     // Change LRU page
     LRU_linking(framenum);
@@ -346,7 +350,7 @@ pthread_mutex_t * mutex_buf_read(int table_id, pagenum_t pagenum, page_t * dest)
 }
 
 
-pthread_mutex_t * mutex_buf_write(int table_id, pagenum_t pagenum, const page_t * src) {
+void mutex_buf_write(int table_id, pagenum_t pagenum, const page_t * src, int page_latch_flag) {
 
     framenum_t framenum;
 
@@ -354,16 +358,16 @@ pthread_mutex_t * mutex_buf_write(int table_id, pagenum_t pagenum, const page_t 
 
     if (Buffer == NULL) {
         file_write_page(table_id, pagenum, src);
-        return NULL;
+        return;
     }
 
     /* Case : Buffer is exist */
 
-    framenum = get_framenum(table_id, pagenum);
+    framenum = get_framenum(table_id, pagenum, page_latch_flag);
 
     /* Case : Thread failed to catch page latch */
-    while (framenum == -1)
-        framenum = get_framenum(table_id, pagenum);
+    if (framenum == -1)
+        printf("mutex_buf_write_ERROR\n");
 
     LRU_linking(framenum);
 
@@ -373,6 +377,4 @@ pthread_mutex_t * mutex_buf_write(int table_id, pagenum_t pagenum, const page_t 
     // Write page to buffer and set dirty bit
     memcpy(&Buffer[framenum].frame, src, PAGE_SIZE);
     Buffer[framenum].is_dirty = 1;
-
-    return &Buffer[framenum].page_latch;
 }

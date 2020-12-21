@@ -23,9 +23,6 @@ struct lock_t {
 	int trx_id;
 	int lock_mode;
 	int is_waiting;
-	int undo;
-	int64_t lsn;
-	int64_t pagenum;
 
 	// lock list
 	lock_table_entry * sentinel;

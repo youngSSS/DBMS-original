@@ -25,13 +25,11 @@ int init_db(int buf_num, int flag, int log_num, char * log_path, char * logmsg_p
 
     // DB initialize
     result = index_init_db(buf_num);
-    if (result != 0) return result;
+    if (result == 1) return result;
 
     result = init_trx();
-    if (result != 0) return 5;
 
     result = init_log(logmsg_path);
-    if (result != 0) return 6;
 
     // Recovery
     result = DB_recovery(flag, log_num, log_path);
@@ -137,10 +135,8 @@ int db_update(int table_id, int64_t key, char * values, int trx_id) {
     if (table_id > 10)
         return 1;
 
-    if (get_is_open(table_id) == 0) {
-//        printf("Open fault\n");
+    if (get_is_open(table_id) == 0)
         return 1;
-    }
 
     result = trx_update(table_id, key, values, trx_id);
 
@@ -151,7 +147,6 @@ int db_update(int table_id, int64_t key, char * values, int trx_id) {
     }
 
     else if (result == 1) {
-//        printf("No key\n");
         trx_abort(trx_id);
         return 1;
     }
@@ -160,7 +155,7 @@ int db_update(int table_id, int64_t key, char * values, int trx_id) {
 }
 
 
-// return 0 : close succes
+// return 0 : close success
 // return 1 : file having table_id is not exist
 
 int close_table(int table_id) {

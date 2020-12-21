@@ -17,7 +17,7 @@
 // Reserved size of each page
 #define HEADER_PAGE_RESERVED (PAGE_SIZE - 24)
 #define FREE_PAGE_RESERVED (PAGE_SIZE - 8)
-#define PAGE_HEADER_RESERVED (PAGE_HEADER_SIZE - 32)
+#define PAGE_HEADER_RESERVED (PAGE_HEADER_SIZE - 40)
 
 // Number of records in each pages
 #define NUM_LEAF_RECORD 31
@@ -37,6 +37,8 @@ typedef uint64_t pagenum_t;
 
 
 /* Structure */
+
+#pragma pack (push, 1)
 
 typedef struct internalRecord {
 	int64_t key;
@@ -90,6 +92,8 @@ typedef struct page_t {
 		page p;
 	};
 } page_t;
+
+#pragma pack(pop)
 
 
 /* ---------- File APIs ---------- */

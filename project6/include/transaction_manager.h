@@ -9,9 +9,11 @@ typedef struct trx_t trx_t;
 typedef struct undoLog undoLog;
 
 struct undoLog {
+    int64_t lsn;
     int table_id;
     int64_t pagenum;
     int64_t key;
+    int key_index;
     char old_value[120];
     char new_value[120];
 };
@@ -38,8 +40,8 @@ void trx_abort(int trx_id);
 unordered_map< int, int > get_wait_for_list(lock_t * lock_obj, unordered_map< int, int > is_visit);
 
 // Issue a log to the transaction for abort
-void trx_logging(lock_t * lock_obj, int64_t lsn, int64_t pagenum, char * old_value, char * new_value);
-
+void trx_logging(int table_id, int key, int trx_id, int64_t lsn, int64_t pagenum, int key_index,
+                 char * old_value, char * new_value);
 // Trx_Table Function
 void trx_linking(lock_t * lock_obj);
 void trx_cut_linking(lock_t * lock_obj);

@@ -58,11 +58,13 @@ int trx_commit(int trx_id) {
     pthread_mutex_unlock(&Trx_Table_Latch);
 
     lock_lock_latch();
+
     while (lock_obj != NULL) {
         free_lock_obj = lock_obj;
         lock_obj = lock_obj->trx_next;
         lock_release(free_lock_obj, 0);
     }
+
     release_lock_latch();
 
     pthread_mutex_lock(&Trx_Table_Latch);
@@ -71,6 +73,8 @@ int trx_commit(int trx_id) {
 
     issue_commit_log(trx_id);
 
+    write_log(0, 0);
+
     return trx_id;
 }
 
@@ -78,86 +82,48 @@ int trx_commit(int trx_id) {
 // DB API call
 void trx_abort(int trx_id) {
 
-    lock_t * lock_obj, * free_lock_obj, * tail_lock_obj;
-    undoLog undo_log;
-    int lock_obj_table_id;
-    int lock_obj_key;
+    lock_t * lock_obj, * free_lock_obj;
     int next_undo_LSN;
     int compensate_lsn;
 
-    vector< int64_t > next_undo_LSN_list;
+    vector< undoLog >   undo_log_list;
+    undoLog             undo_log;
 
     pthread_mutex_lock(&Trx_Table_Latch);
     lock_obj = Trx_Table[trx_id].next;
-    tail_lock_obj = Trx_Table[trx_id].tail;
+    undo_log_list = Trx_Table[trx_id].undo_log_list;
     pthread_mutex_unlock(&Trx_Table_Latch);
 
     /* ------------------------------ UNDO ------------------------------ */
-    lock_lock_latch();
-    while (lock_obj != NULL) {
 
-        if (lock_obj->undo == 1) {
+    while (undo_log_list.size() != 0) {
 
-            if (next_undo_LSN_list.size() == 0)
-                next_undo_LSN_list.push_back(-1);
-            else
-                next_undo_LSN_list.push_back(lock_obj->lsn);
+        undo_log = undo_log_list.back();
+        undo_log_list.pop_back();
 
-        }
+        if (undo_log_list.size() == 0)  next_undo_LSN = -1;
+        else                            next_undo_LSN = undo_log_list.back().lsn;
 
-        lock_obj = lock_obj->trx_next;
+        compensate_lsn = issue_compensate_log(trx_id, undo_log.table_id, undo_log.pagenum,
+                                              (undo_log.pagenum * PAGE_SIZE) + PAGE_HEADER_SIZE + (128 * undo_log.key_index),
+                                              undo_log.old_value, undo_log.new_value, next_undo_LSN);
+
+        undo(undo_log.table_id, undo_log.pagenum, undo_log.key, undo_log.old_value, compensate_lsn);
+
     }
+    /* ------------------------------------------------------------------ */
+
+
+    /* ----------------------------- RELEASE ---------------------------- */
+    lock_lock_latch();
 
     // Release lock from back to forward to do correct undo
-    lock_obj = tail_lock_obj;
     while (lock_obj != NULL) {
-
-        lock_obj_table_id = lock_obj->sentinel->table_id;
-        lock_obj_key = lock_obj->sentinel->key;
-
         free_lock_obj = lock_obj;
-        lock_obj = lock_obj->trx_prev;
-
-        lock_trx_table_latch();
-        if (lock_obj == Trx_Table[trx_id].next) {
-            Trx_Table[trx_id].next = NULL;
-            Trx_Table[trx_id].tail = NULL;
-        }
-        else
-            Trx_Table[trx_id].tail = lock_obj;
-
-        if (lock_obj != NULL)
-            lock_obj->trx_next = NULL;
-
-        release_trx_table_latch();
-
-        if (free_lock_obj->undo == 1) {
-
-            pthread_mutex_lock(&Trx_Table_Latch);
-            undo_log = Trx_Table[trx_id].undo_log_list.back();
-            Trx_Table[trx_id].undo_log_list.pop_back();
-            pthread_mutex_unlock(&Trx_Table_Latch);
-
-            next_undo_LSN = next_undo_LSN_list.back();
-            next_undo_LSN_list.pop_back();
-
-            if (undo_log.table_id != free_lock_obj->sentinel->table_id || undo_log.key != lock_obj_key)
-                printf("@@@@@@@@@@@@@@@@@@@@@\n"
-                       "@@@@ ABORT ERROR @@@@\n"
-                       "@@@@@@@@@@@@@@@@@@@@@\n");
-
-            compensate_lsn = issue_compensate_log(trx_id, lock_obj_table_id, free_lock_obj->pagenum, 0,
-                                 undo_log.old_value, undo_log.new_value, next_undo_LSN);
-
-            release_lock_latch();
-            undo(undo_log.table_id, undo_log.pagenum, undo_log.key, undo_log.old_value, compensate_lsn);
-            lock_lock_latch();
-
-        }
-
+        lock_obj = lock_obj->trx_next;
         lock_release(free_lock_obj, 1);
-
     }
+
     release_lock_latch();
     /* ------------------------------------------------------------------ */
 
@@ -171,6 +137,8 @@ void trx_abort(int trx_id) {
 
     // Issue a ROLLBACK Log
     issue_rollback_log(trx_id);
+
+    write_log(0, 0);
 
 }
 
@@ -288,30 +256,24 @@ unordered_map< int, int > get_wait_for_list(lock_t * lock_obj, unordered_map< in
 
 
 // db_update call
-void trx_logging(lock_t * lock_obj, int64_t lsn, int64_t pagenum, char * old_value, char * new_value) {
+void trx_logging(int table_id, int key, int trx_id, int64_t lsn, int64_t pagenum, int key_index,
+        char * old_value, char * new_value) {
 
     undoLog undo_log;
 
-    // Set lock object & Make undo log
-    lock_lock_latch();
-    lock_obj->lsn = lsn;
-    lock_obj->pagenum = pagenum;
-    undo_log.table_id = lock_obj->sentinel->table_id;
+    // Set undo log
+    undo_log.lsn = lsn;
+    undo_log.table_id = table_id;
     undo_log.pagenum = pagenum;
-    undo_log.key = lock_obj->sentinel->key;
+    undo_log.key = key;
+    undo_log.key_index = key_index;
     strcpy(undo_log.old_value, old_value);
     strcpy(undo_log.new_value, new_value);
-    release_lock_latch();
 
     // Push undo log to trx undo log list
     pthread_mutex_lock(&Trx_Table_Latch);
-    Trx_Table[lock_obj->trx_id].undo_log_list.push_back(undo_log);
+    Trx_Table[trx_id].undo_log_list.push_back(undo_log);
     pthread_mutex_unlock(&Trx_Table_Latch);
-
-    // Mark lock as undo target
-    lock_lock_latch();
-    lock_obj->undo = 1;
-    release_lock_latch();
 
 }
 

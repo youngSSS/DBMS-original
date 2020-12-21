@@ -137,7 +137,7 @@ int trx_find(int table_id, int64_t key, char * ret_val, int trx_id) {
     /* -------------------------------------------------------- */
 
     // Get page latch
-    page_latch = mutex_buf_read(table_id, pagenum, page);
+    page_latch = mutex_buf_read(table_id, pagenum, page, 0);
 
     for (i = 0; i < page->p.num_keys; i++) {
 
@@ -150,6 +150,9 @@ int trx_find(int table_id, int64_t key, char * ret_val, int trx_id) {
             if (result == 0) {
 
                 /* We have PAGE LATCH & LOCK LATCH */
+
+                // Read again
+                mutex_buf_read(table_id, pagenum, page, 1);
 
                 // Do the DB operation
                 strcpy(ret_val, page->p.l_records[i].value);
@@ -174,7 +177,7 @@ int trx_find(int table_id, int64_t key, char * ret_val, int trx_id) {
                 /* We have LOCK OBJECT LATCH */
 
                 // Get page latch
-                page_latch = mutex_buf_read(table_id, pagenum, page);
+                page_latch = mutex_buf_read(table_id, pagenum, page, 0);
 
                 /* We have PAGE LATCH & LOCK OBJECT LATCH */
 
@@ -189,7 +192,7 @@ int trx_find(int table_id, int64_t key, char * ret_val, int trx_id) {
 
             }
 
-                /* Case : Deadlock */
+            /* Case : Deadlock */
             else if (result == 2) {
 
                 // Release page latch
@@ -260,7 +263,7 @@ int trx_update(int table_id, int64_t key, char * value, int trx_id) {
     /* -------------------------------------------------------- */
 
     // Get page latch
-    page_latch = mutex_buf_read(table_id, pagenum, page);
+    page_latch = mutex_buf_read(table_id, pagenum, page, 0);
 
     for (i = 0; i < page->p.num_keys; i++) {
 
@@ -274,23 +277,26 @@ int trx_update(int table_id, int64_t key, char * value, int trx_id) {
 
                 /* We have PAGE LATCH & LOCK OBJECT LATCH */
 
+                // Read again
+                mutex_buf_read(table_id, pagenum, page, 1);
+
                 // Issue a UPDATE Log
-                lsn = issue_update_log(trx_id, table_id, pagenum, 0,
+                lsn = issue_update_log(trx_id, table_id, pagenum, (pagenum * PAGE_SIZE) + PAGE_HEADER_SIZE + (128 * i),
                                                  page->p.l_records[i].value, value);
 
                 // Logging to transaction
-                trx_logging(lock_obj, lsn, pagenum, page->p.l_records[i].value, value);
+                trx_logging(table_id, key, trx_id, lsn, pagenum, i, page->p.l_records[i].value, value);
 
                 // Do the DB operation
                 strcpy(page->p.l_records[i].value, value);
                 // Update page LSN
                 page->p.page_LSN = lsn;
 
+                // Write updated page to buffer
+                mutex_buf_write(table_id, pagenum, page, 1);
+
                 // Release page latch
                 pthread_mutex_unlock(page_latch);
-
-                // Write updated page to buffer
-                buf_write_page(table_id, pagenum, page);
 
                 free(page);
                 return 0;
@@ -309,27 +315,27 @@ int trx_update(int table_id, int64_t key, char * value, int trx_id) {
                 /* We have LOCK OBJECT LATCH */
 
                 // Get page latch
-                page_latch = mutex_buf_read(table_id, pagenum, page);
+                page_latch = mutex_buf_read(table_id, pagenum, page, 0);
 
                 /* We have PAGE LATCH & LOCK OBJECT LATCH */
 
                 // Issue a UPDATE Log
-                lsn = issue_update_log(trx_id, table_id, pagenum, 0,
+                lsn = issue_update_log(trx_id, table_id, pagenum, (pagenum * PAGE_SIZE) + PAGE_HEADER_SIZE + (128 * i),
                                        page->p.l_records[i].value, value);
 
                 // Logging to transaction
-                trx_logging(lock_obj, lsn, pagenum, page->p.l_records[i].value, value);
+                trx_logging(table_id, key, trx_id, lsn, pagenum, i, page->p.l_records[i].value, value);
 
                 // Do the DB operation
                 strcpy(page->p.l_records[i].value, value);
                 // Update page LSN
                 page->p.page_LSN = lsn;
 
+                // Write updated page to buffer
+                mutex_buf_write(table_id, pagenum, page, 1);
+
                 // Release page latch
                 pthread_mutex_unlock(page_latch);
-
-                // Write updated page to buffer
-                buf_write_page(table_id, pagenum, page);
 
                 free(page);
                 return 0;
@@ -365,16 +371,19 @@ int trx_update(int table_id, int64_t key, char * value, int trx_id) {
 
 int undo(int table_id, pagenum_t pagenum, int64_t key, char * old_value, int compensate_lsn) {
     page_t * page;
+    pthread_mutex_t * page_latch;
     int i;
 
     page = make_page();
-    buf_read_page(table_id, pagenum, page);
+    page_latch = mutex_buf_read(table_id, pagenum, page, 0);
 
     for (i = 0; i < page->p.num_keys; i++) {
         if (key == page->p.l_records[i].key){
             page->p.page_LSN = compensate_lsn;
             strcpy(page->p.l_records[i].value, old_value);
-            buf_write_page(table_id, pagenum, page);
+            mutex_buf_write(table_id, pagenum, page, 1);
+            pthread_mutex_unlock(page_latch);
+            free(page);
             return 0;
         }
     }
@@ -394,6 +403,7 @@ void print_leaf(int table_id) {
     page_t * header_page, * page;
     pagenum_t temp_pagenum;
     int i = 0;
+    int64_t value;
 
     header_page = make_page();
     file_read_page(table_id, 0, header_page);
@@ -413,8 +423,13 @@ void print_leaf(int table_id) {
     }
 
     while (1) {
-        for (int j = 0; j < page->p.num_keys; j++)
-            printf("%ld ", page->p.l_records[j].key);
+        for (int j = 0; j < page->p.num_keys; j++) {
+            value = atoi(page->p.l_records[j].value);
+
+            if (page->p.l_records[j].key != value)
+                printf("(%ld, %s) ", page->p.l_records[j].key, page->p.l_records[j].value);
+        }
+
         printf("| ");
 
         if (page->p.right_sibling_pagenum == 0)

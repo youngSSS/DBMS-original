@@ -416,8 +416,11 @@ XLT_func(void* args)
             }
         }
 
-        /* transaction commit */
-        trx_commit(transaction_id);
+        if (transaction_id % 2 == 0) {
+            printf("COMMIT : %d\n", transaction_id);
+            trx_commit(transaction_id);
+        }
+
     }
 
     return NULL;
@@ -571,8 +574,9 @@ MLT_func(void* args)
 
         }
 
-        /* transaction commit */
-        trx_commit(transaction_id);
+//        /* transaction commit */
+//        if (transaction_id % 2 == 0)
+            trx_commit(transaction_id);
     }
 
     return NULL;
@@ -591,7 +595,7 @@ mlock_test()
     pthread_mutex_init(&MLT_mutex, NULL);
 
     /* Initiate database. */
-    init_db(DATABASE_BUFFER_SIZE, flag, log_num, "LogFile.db", "LogMessageFile.txt");
+    init_db(10, flag, log_num, "LogFile.db", "LogMessageFile.txt");
 
     /* open table */
     for (int i = 0; i < MLT_TABLE_NUMBER; i++) {
@@ -857,9 +861,35 @@ int main( void ) {
     char _logmsg_path[120];
     int test_cnt = 0;
 
+    /************************** VARIABLES **************************/
+    // Initialize DB
+    int     BUF_SIZE = 100;
+    int     FLAG = 0;
+    int     LOG_NUM = 0;
+    char    LOG_PATH[20] = {"LOG_FILE.db"};
+    char    LOGMSG_PATH[20] = {"LOG_MSG.txt"};
+
+    // Open data file
+    char    DATA_PATH[20] = {"DATA1"};
+    int     TABLE_ID;
+
+    // Insert values
+    char    VALUE[120];
+
+    // Transaction operations
+    int     TRX_ID[10];
+    int     UPDATE_CNT = 5;
+    int     UPDATE_KEY;
+    char    UPDATE_VALUE[120] = {"UPDATE"};
+    char    UPDATE_VALUE_1[120];
+    char    UPDATE_VALUE_2[120];
+    /***************************************************************/
+
     // Usage
     print_usage();
     printf("> ");
+
+
 
     while (scanf("%c", &instruction) != EOF) {
 
@@ -867,7 +897,8 @@ int main( void ) {
 
             case 'B':
                 scanf("%d", &buf_size);
-                result = init_db(DATABASE_BUFFER_SIZE, flag, log_num, log_path, logmsg_path);
+                scanf("%d %d %s %s", &_flag, &_log_num, _log_path, _logmsg_path);
+                result = init_db(DATABASE_BUFFER_SIZE, _flag, _log_num, _log_path, _logmsg_path);
                 if (result == 0) printf("DB initializing is completed\n");
                 else if (result == 1) printf("Buffer creation fault\n");
                 else if (result == 2) printf("DB is already initialized\nDB initializing fault\n");
@@ -888,10 +919,6 @@ int main( void ) {
 
             case 'R':
                 index_init_db(100);
-
-                scanf("%d", &test_cnt);
-
-
                 scanf("%d %d %s %s", &_flag, &_log_num, _log_path, _logmsg_path);
                 init_log(_logmsg_path);
                 DB_recovery(_flag, _log_num, _log_path);
@@ -923,6 +950,61 @@ int main( void ) {
                 }
                 else if (result == 1) printf("Table_id[%d] file is not exist\n", table_id);
                 else if (result == 2) printf("No such key <%ld>\nDeletion fault\n", input_key);
+                break;
+
+            case 'u':
+                /***************************** TEST ****************************/
+                // Initialize DB
+                init_db(BUF_SIZE, FLAG, LOG_NUM, LOG_PATH, LOGMSG_PATH);
+                printf("SUCCESS :: INITIALIZE DB\n");
+
+                // Open data file
+                TABLE_ID = open_table(DATA_PATH);
+                printf("SUCCESS :: OPEN DATA FILE\n");
+
+                // Insert values
+                for (int64_t i = 0; i <= 1000; i++) {
+                    sprintf(VALUE, "%ld", i);
+                    db_insert(TABLE_ID, i, VALUE);
+                }
+                printf("SUCCESS :: INSERT VALUES\n");
+
+                // Transaction operations
+                for (int i = 0; i < 10; i++) {
+
+                    TRX_ID[i] =trx_begin();
+
+                    for (int j = 0; j < UPDATE_CNT; j++) {
+                        UPDATE_KEY = rand() % 1000 + 1;
+                        strcpy(UPDATE_VALUE_1, UPDATE_VALUE);
+                        sprintf(UPDATE_VALUE_2, "%d", UPDATE_KEY);
+                        strcat(UPDATE_VALUE_1, UPDATE_VALUE_2);
+                        db_update(TABLE_ID, UPDATE_KEY, UPDATE_VALUE_1, TRX_ID[i]);
+                    }
+
+                    // COMMIT Transaction 1, 3, 5, 7
+                    if (TRX_ID[i] == 1 || TRX_ID[i] == 3 || TRX_ID[i] == 5 || TRX_ID[i] == 7)
+                        trx_commit(TRX_ID[i]);
+
+                    // ABORT Transaction 2, 4, 6, 10
+                    else if (TRX_ID[i] == 2 || TRX_ID[i] == 4 || TRX_ID[i] == 6 || TRX_ID[i] == 10)
+                        trx_abort(TRX_ID[i]);
+
+                    // Do not COMMIT OR ABORT Transaction 8, 9
+                    else
+                        continue;
+
+                    // FLUSH DATA BUFFER TO DATA DISK
+                    if (TRX_ID[i] == 4)
+                        db_flush(TABLE_ID);
+
+                }
+                printf("SUCCESS :: TEST\n");
+                /***************************************************************/
+                break;
+
+            case 'L':
+                write_log(0, 0);
                 break;
 
              case 'I':

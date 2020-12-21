@@ -11,21 +11,25 @@
 #include <fcntl.h>
 #include <cstdio>
 
-#define LOG_BUFFER_SIZE 10240000
-#define LOG_G_SIZE 28
-#define LOG_U_SIZE 288
-#define LOG_C_SIZE 296
-#define DATA_LENGTH 120
+#define LOG_BUFFER_SIZE     10240000
 
-#define TYPE_START_POS 24
-#define TYPE_SIZE 4
+#define LOG_G_SIZE          28
+#define LOG_U_SIZE          288
+#define LOG_C_SIZE          296
 
-#define IMG_SIZE 120
+#define DATA_LENGTH         120
 
-#define TRX_ID_START_POS 20
-#define TRX_ID_SIZE 4
+#define TYPE_START_POS      24
+#define TYPE_SIZE           4
+
+#define IMG_SIZE            120
+
+#define TRX_ID_START_POS    20
+#define TRX_ID_SIZE         4
 
 #define TEMP_LOG_BUFFER_SIZE 15000
+
+#define LSN_FILE "LSN_FILE"
 
 
 using namespace std;
@@ -93,7 +97,7 @@ int64_t issue_LSN(int log_size);
 int64_t get_and_update_last_LSN(int trx_id, int64_t lsn);
 
 // Write log buffer to log disk
-void write_log(int clr_flag);
+void write_log(int temp_flag, int no_latch_flag);
 // Write log to log buffer
 void write_to_log_buffer(void * log, int type);
 
@@ -101,7 +105,7 @@ void write_to_log_buffer(void * log, int type);
 /* --------------- Functions for recovery --------------- */
 int DB_recovery(int flag, int log_num, char * log_path);
 int analysis_pass(int read_size, int * start_offset);
-int redo_pass(int flag, int log_num, int read_size, int * start_offset, unordered_map< int, int > looser);
+int redo_pass(int flag, int log_num, int read_size, int * start_offset, unordered_map< int, int > loser);
 int undo_pass(int flag, int log_num, int * start_offset);
 
 // Print log buffer
