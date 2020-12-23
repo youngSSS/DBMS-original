@@ -1,5 +1,5 @@
 # Database Management System
-## For details, read WIKI
+### For details, read WIKI
 
 ### project 1
   - B+ Tree Analysis
