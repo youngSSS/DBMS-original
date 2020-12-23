@@ -3,22 +3,23 @@
 
 ### project 1
   - B+ Tree Analysis
-  - Analysis the B+ Tree to convert in-memory B+ tree to on-disk B+ tree
+  - Analysis the B+ Tree to convert In-Memory B+ Tree to On-Disk B+ Tree
   - WIKI : **[01_Analysis B Tree](https://github.com/youngSSS/DBMS/wiki/01_Analysis-B--Tree)**
 
 ### project 2
-  - Disk Based B+ Tree Implementation
+  - Index Manager & File Manager Implementation
+  - Design of Index Manager & File Manager to support fast data access
   - Convert In-Memory B+ Tree to On-Disk B+ Tree
   - WIKI : **[02_On Disk B Tree Design](https://github.com/youngSSS/DBMS/wiki/02_On-Disk-B--Tree-Design)**
   
 ### project 3
   - Buffer Manager Implementation
-  - Design of Buffer Manager to reduce file I/O
+  - Design of Buffer Manager to reduce disk I/O
   - WIKI : **[03_Buffer Design](https://github.com/youngSSS/DBMS/wiki/03_Buffer-Design)**
 
 ### project 4
   - Lock Module Implementaion
-  - Design of LOCK MODULE for lock manager
+  - Design of LOCK MODULE for project 5
   - WIKI : **[04_Block Module Design](https://github.com/youngSSS/DBMS/wiki/04_Block-Module-Design)**
 
 ### project 5
